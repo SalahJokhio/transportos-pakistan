@@ -1,0 +1,43 @@
+name: transport_os_driver
+description: TransportOS Driver App — Pakistan Bus Tracking
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # HTTP & API
+  dio: ^5.4.0
+  # State management
+  flutter_riverpod: ^2.4.9
+  # Secure storage for tokens
+  flutter_secure_storage: ^9.0.0
+  # GPS location
+  geolocator: ^11.0.0
+  # Maps
+  google_maps_flutter: ^2.6.0
+  # Socket.io for real-time tracking
+  socket_io_client: ^2.0.3+1
+  # UI
+  cupertino_icons: ^1.0.6
+  # Shared prefs
+  shared_preferences: ^2.2.2
+  # Toast messages
+  fluttertoast: ^8.2.4
+  # QR code for ticket verification
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
