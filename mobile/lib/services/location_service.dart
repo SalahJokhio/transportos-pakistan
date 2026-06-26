@@ -33,10 +33,12 @@ class LocationService {
 
   /// Per-platform settings. On Android the foregroundNotificationConfig spins up
   /// a foreground service so the OS won't kill location updates in the background.
+  /// `medium` accuracy uses the fused/network provider too, so it gets a fix
+  /// indoors where a pure-GPS (`high`) fix may never arrive.
   LocationSettings _settings() {
     const interval = Duration(seconds: 10);
     return AndroidSettings(
-      accuracy: LocationAccuracy.high,
+      accuracy: LocationAccuracy.medium,
       distanceFilter: 0, // time-based updates via intervalDuration
       intervalDuration: interval,
       foregroundNotificationConfig: const ForegroundNotificationConfig(
@@ -47,9 +49,24 @@ class LocationService {
     );
   }
 
-  void startTracking(String tripId) {
+  Future<void> startTracking(String tripId) async {
     if (_sub != null) return; // already tracking
     _activeTripId = tripId;
+
+    // Send one ping immediately from the last-known/current fix so tracking
+    // shows up right away instead of waiting for the first stream emission.
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) {
+        _api.sendLocation(tripId, last.latitude, last.longitude, last.speed);
+      } else {
+        final now = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium, // geolocator 11.x API
+        ).timeout(const Duration(seconds: 8));
+        _api.sendLocation(tripId, now.latitude, now.longitude, now.speed);
+      }
+    } catch (_) {/* first-fix best effort */}
+
     _sub = Geolocator.getPositionStream(locationSettings: _settings()).listen(
       (Position pos) {
         if (_activeTripId == null) return;
