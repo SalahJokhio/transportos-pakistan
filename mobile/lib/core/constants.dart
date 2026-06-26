@@ -1,6 +1,12 @@
 class ApiConstants {
-  static const String baseUrl = 'http://10.0.2.2:3000/api/v1'; // Android emulator localhost
-  static const String trackingUrl = 'http://10.0.2.2:3005';
+  // Physical phone reaches the dev backend over the LAN (same Wi-Fi). For the
+  // Android emulator use 10.0.2.2 instead. Override at build time with
+  // --dart-define=API_URL=... if your IP differs.
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://192.168.1.39:3000/api/v1',
+  );
+  static const String trackingUrl = 'http://192.168.1.39:3005';
 
   static const String login = '/auth/login';
   static const String me = '/auth/me';
