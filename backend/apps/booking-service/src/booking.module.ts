@@ -16,12 +16,14 @@ import { LoyaltyTransaction } from '../../user-service/src/entities/loyalty-tran
 import { Trip } from '../../fleet-service/src/entities/trip.entity';
 import { Route } from '../../fleet-service/src/entities/route.entity';
 import { Bus } from '../../fleet-service/src/entities/bus.entity';
+import { NotificationModule } from '../../notification-service/src/notification.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     TypeOrmModule.forFeature([Booking, BookingSeat, User, LoyaltyTransaction, Trip, Route, Bus]),
+    NotificationModule, // SMS on confirm / cancel
   ],
   controllers: [BookingController],
   providers: [BookingService, PricingService, SeatLockService, TicketService, ConfigService],

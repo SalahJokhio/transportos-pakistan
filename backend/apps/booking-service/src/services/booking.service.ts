@@ -18,6 +18,8 @@ import { PricingService } from './pricing.service';
 import { User } from '../../../user-service/src/entities/user.entity';
 import { LoyaltyTransaction, LoyaltyTransactionType } from '../../../user-service/src/entities/loyalty-transaction.entity';
 import { Trip } from '../../../fleet-service/src/entities/trip.entity';
+import { Route } from '../../../fleet-service/src/entities/route.entity';
+import { NotificationService } from '../../../notification-service/src/notification.service';
 
 // 1 loyalty point per Rs 10 spent
 const POINTS_PER_RUPEE = 1 / 10;
@@ -35,10 +37,36 @@ export class BookingService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(LoyaltyTransaction) private readonly loyaltyRepo: Repository<LoyaltyTransaction>,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
+    @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
     private readonly seatLockService: SeatLockService,
     private readonly pricingService: PricingService,
+    private readonly notificationService: NotificationService,
     private readonly dataSource: DataSource,
   ) {}
+
+  // Fire-and-forget SMS — never let a notification failure break the booking.
+  private async notifyConfirmed(booking: Booking) {
+    try {
+      const user = await this.userRepo.findOne({ where: { id: booking.passengerId } });
+      if (!user?.phone) return;
+      const trip = await this.tripRepo.findOne({ where: { id: booking.tripId } });
+      const route = trip ? await this.routeRepo.findOne({ where: { id: trip.routeId } }) : null;
+      const routeStr = route ? `${route.originCity} → ${route.destinationCity}` : 'your trip';
+      const departure = trip ? new Date(trip.departureTime).toLocaleString('en-PK') : '';
+      await this.notificationService.sendBookingConfirmation(user.phone, booking.pnr, routeStr, departure);
+    } catch (err: any) {
+      this.logger.warn(`Confirmation SMS failed for ${booking.pnr}: ${err.message}`);
+    }
+  }
+
+  private async notifyCancelled(booking: Booking) {
+    try {
+      const user = await this.userRepo.findOne({ where: { id: booking.passengerId } });
+      if (user?.phone) await this.notificationService.sendCancellationNotice(user.phone, booking.pnr);
+    } catch (err: any) {
+      this.logger.warn(`Cancellation SMS failed for ${booking.pnr}: ${err.message}`);
+    }
+  }
 
   async create(dto: CreateBookingDto, passengerId: string, bookedById?: string): Promise<Booking> {
     // Self-service: the passenger holds the lock under their own id.
@@ -199,6 +227,9 @@ export class BookingService {
       }
     });
 
+    // Notify the passenger their booking is cancelled (+ refund on the way).
+    await this.notifyCancelled(booking);
+
     const result: any = await this.findById(id);
     result.refund = refund ?? { percent: 0, amount: 0, reason: 'No settled payment to refund' };
     return result;
@@ -286,6 +317,9 @@ export class BookingService {
         this.logger.warn(`Loyalty earn failed for booking ${id}: ${err.message}`);
       }
     }
+
+    // Notify the passenger their seat is confirmed.
+    await this.notifyConfirmed(booking);
 
     return booking;
   }
