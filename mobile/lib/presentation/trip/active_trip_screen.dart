@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../data/api_client.dart';
 import '../../routes/app_router.dart';
 import '../../services/location_service.dart';
 
@@ -14,7 +15,6 @@ class ActiveTripScreen extends StatefulWidget {
 class _ActiveTripScreenState extends State<ActiveTripScreen> {
   final LocationService _locationService = LocationService();
   bool _tracking = false;
-  String _status = 'SCHEDULED';
 
   final List<String> _statuses = ['SCHEDULED', 'BOARDING', 'DEPARTED', 'IN_TRANSIT', 'ARRIVED'];
   int _statusIndex = 0;
@@ -43,12 +43,39 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     }
   }
 
-  void _advanceStatus() {
-    if (_statusIndex < _statuses.length - 1) {
-      setState(() {
-        _statusIndex++;
-        _status = _statuses[_statusIndex];
-      });
+  bool _busy = false;
+
+  Future<void> _advanceStatus() async {
+    if (_statusIndex >= _statuses.length - 1 || _busy) return;
+    final next = _statuses[_statusIndex + 1];
+
+    // DEPARTED and ARRIVED are real backend transitions (driver start/end).
+    // BOARDING and IN_TRANSIT are local UI steps only.
+    setState(() => _busy = true);
+    try {
+      if (next == 'DEPARTED') {
+        await ApiClient().startTrip(widget.tripId);
+        // Auto-start GPS broadcast once the bus departs.
+        final granted = await _locationService.requestPermission();
+        if (granted) {
+          _locationService.startTracking(widget.tripId);
+          if (mounted) setState(() => _tracking = true);
+        }
+      } else if (next == 'ARRIVED') {
+        await ApiClient().endTrip(widget.tripId);
+        _locationService.stopTracking();
+        if (mounted) setState(() => _tracking = false);
+      }
+      if (!mounted) return;
+      setState(() => _statusIndex++);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update trip: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -121,8 +148,10 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _advanceStatus,
-                      child: Text('Mark as ${_statuses[_statusIndex + 1].replaceAll('_', ' ')}'),
+                      onPressed: _busy ? null : _advanceStatus,
+                      child: Text(_busy
+                          ? 'Updating…'
+                          : 'Mark as ${_statuses[_statusIndex + 1].replaceAll('_', ' ')}'),
                     ),
                   ),
                 ],

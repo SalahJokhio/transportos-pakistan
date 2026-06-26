@@ -6,7 +6,12 @@ class ApiConstants {
   static const String me = '/auth/me';
   static const String driverTrips = '/driver/trips';
   static const String updateLocation = '/tracking/location';
-  static const String updateTripStatus = '/trips';
+
+  // Driver trip lifecycle (POST). :id is the trip id.
+  static String startTrip(String id) => '/driver/trips/$id/start';
+  static String endTrip(String id) => '/driver/trips/$id/end';
+  // Ownership-checked boarding manifest (GET).
+  static String manifest(String tripId) => '/bookings/manifest/$tripId';
 }
 
 class StorageKeys {

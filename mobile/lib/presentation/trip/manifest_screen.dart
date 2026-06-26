@@ -20,11 +20,17 @@ class _ManifestScreenState extends State<ManifestScreen> {
     _loadManifest();
   }
 
+  int _totalSeats = 0;
+
   Future<void> _loadManifest() async {
-    // Fetch confirmed bookings for this trip
+    // Ownership-checked boarding manifest: flat list of booked seats.
     try {
-      final res = await ApiClient().dio.get('/bookings', queryParameters: {'tripId': widget.tripId});
-      setState(() { _passengers = res.data as List<dynamic>? ?? []; _loading = false; });
+      final res = await ApiClient().getManifest(widget.tripId);
+      setState(() {
+        _passengers = res['passengers'] as List<dynamic>? ?? [];
+        _totalSeats = res['totalSeats'] as int? ?? 0;
+        _loading = false;
+      });
     } catch (_) {
       setState(() => _loading = false);
     }
@@ -32,10 +38,10 @@ class _ManifestScreenState extends State<ManifestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final total = _passengers.length;
+    final booked = _passengers.length;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Manifest · $total passengers')),
+      appBar: AppBar(title: Text('Manifest · $booked/$_totalSeats seats')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _passengers.isEmpty
@@ -46,47 +52,36 @@ class _ManifestScreenState extends State<ManifestScreen> {
                     const Text('No passengers yet', style: TextStyle(color: Colors.grey)),
                   ]),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _passengers.length,
-                  itemBuilder: (_, i) {
-                    final booking = _passengers[i] as Map<String, dynamic>;
-                    final details = booking['passengerDetails'] as List<dynamic>? ?? [];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text(
-                              booking['pnr'] as String? ?? '—',
-                              style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 15),
+              : RefreshIndicator(
+                  onRefresh: _loadManifest,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _passengers.length,
+                    itemBuilder: (_, i) {
+                      final p = _passengers[i] as Map<String, dynamic>;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.primary.withOpacity(0.1),
+                            child: Text(
+                              '${p['seatNumber'] ?? '—'}',
+                              style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
-                            Text(
-                              'Seats: ${(booking['seatNumbers'] as List?)?.join(', ') ?? '—'}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12),
-                            ),
-                          ]),
-                          if (details.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            ...details.map((p) {
-                              final pd = p as Map<String, dynamic>;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Row(children: [
-                                  const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                                  const SizedBox(width: 6),
-                                  Text(pd['name'] as String? ?? '—', style: const TextStyle(fontSize: 13)),
-                                  const Spacer(),
-                                  Text('Seat ${pd['seatNumber']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                ]),
-                              );
-                            }),
-                          ],
-                        ]),
-                      ),
-                    );
-                  },
+                          ),
+                          title: Text(p['name'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text([
+                            if (p['cnic'] != null) 'CNIC ${p['cnic']}',
+                            if (p['contactPhone'] != null) '📞 ${p['contactPhone']}',
+                          ].join('  ·  ')),
+                          trailing: Text(
+                            p['pnr'] as String? ?? '',
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }

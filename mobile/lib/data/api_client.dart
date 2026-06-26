@@ -52,4 +52,23 @@ class ApiClient {
       return [];
     }
   }
+
+  /// Driver starts the trip → backend marks it DEPARTED + stamps actual departure.
+  Future<Map<String, dynamic>> startTrip(String tripId) async {
+    final res = await dio.post(ApiConstants.startTrip(tripId));
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Driver ends the trip → backend marks it ARRIVED + stamps actual arrival.
+  Future<Map<String, dynamic>> endTrip(String tripId) async {
+    final res = await dio.post(ApiConstants.endTrip(tripId));
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Ownership-checked boarding manifest for a trip.
+  /// Returns { tripId, totalSeats, booked, passengers: [...] }.
+  Future<Map<String, dynamic>> getManifest(String tripId) async {
+    final res = await dio.get(ApiConstants.manifest(tripId));
+    return res.data as Map<String, dynamic>;
+  }
 }
