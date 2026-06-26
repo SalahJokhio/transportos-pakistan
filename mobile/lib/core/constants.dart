@@ -1,12 +1,13 @@
 class ApiConstants {
-  // Physical phone reaches the dev backend over the LAN (same Wi-Fi). For the
-  // Android emulator use 10.0.2.2 instead. Override at build time with
-  // --dart-define=API_URL=... if your IP differs.
+  // Default uses localhost via an `adb reverse tcp:3000 tcp:3000` USB tunnel —
+  // works regardless of Wi-Fi/firewall on a USB-connected device. For LAN/Wi-Fi
+  // instead, override: --dart-define=API_URL=http://<PC-LAN-IP>:3000/api/v1
+  // (emulator: http://10.0.2.2:3000/api/v1).
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://192.168.1.39:3000/api/v1',
+    defaultValue: 'http://localhost:3000/api/v1',
   );
-  static const String trackingUrl = 'http://192.168.1.39:3005';
+  static const String trackingUrl = 'http://localhost:3005';
 
   static const String login = '/auth/login';
   static const String me = '/auth/me';

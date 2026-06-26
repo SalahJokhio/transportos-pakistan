@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants.dart';
@@ -29,7 +30,21 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } catch (e) {
-      setState(() { _error = 'Invalid phone or password. Try again.'; });
+      // Distinguish a real 401 from a connectivity problem so the message isn't
+      // misleading (a network failure is not a wrong password).
+      String msg;
+      if (e is DioException) {
+        if (e.response?.statusCode == 401) {
+          msg = 'Invalid phone or password. Try again.';
+        } else if (e.response != null) {
+          msg = 'Server error (${e.response?.statusCode}). Try again.';
+        } else {
+          msg = 'Cannot reach the server. Check the connection.';
+        }
+      } else {
+        msg = 'Something went wrong. Try again.';
+      }
+      setState(() { _error = msg; });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
