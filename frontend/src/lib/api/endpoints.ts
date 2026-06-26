@@ -45,3 +45,17 @@ export const paymentApi = {
   // DEV/sandbox: simulate a successful payment and confirm the booking
   mockConfirm: (bookingId: string) => post('/payments/mock-confirm', { bookingId }),
 };
+
+export const driverApi = {
+  myTrips: () => get('/driver/trips'),
+  startTrip: (tripId: string) => post(`/driver/trips/${tripId}/start`),
+  endTrip: (tripId: string) => post(`/driver/trips/${tripId}/end`),
+  ping: (data: { tripId: string; lat: number; lng: number; speed?: number }) =>
+    post('/tracking/location', data),
+};
+
+export const agentApi = {
+  // Walk-in booking issued on behalf of a customer (bookedById = agent)
+  book: (data: any) => post('/bookings/agent', data),
+  summary: () => get('/bookings/agent/summary'),
+};

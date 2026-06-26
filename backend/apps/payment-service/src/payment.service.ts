@@ -77,8 +77,33 @@ export class PaymentService {
   }
 
   async handleJazzCashCallback(payload: any) {
-    // TODO: verify pp_SecureHash against integrity salt before trusting.
+    if (!this.verifyJazzCashHash(payload)) {
+      this.logger.warn('Rejected JazzCash callback: invalid secure hash');
+      return { success: false, message: 'Invalid signature' };
+    }
     return this.settle(payload?.pp_TxnRefNo, payload?.pp_ResponseCode === '000');
+  }
+
+  /**
+   * Verify the JazzCash response secure hash (HMAC-SHA256 over the pp_* fields,
+   * sorted, salted) so a forged "success" POST can't confirm a booking without
+   * payment. In dev — no real integrity salt configured — verification is
+   * skipped so the sandbox/mock flow still works.
+   */
+  private verifyJazzCashHash(payload: any): boolean {
+    const salt = process.env.JAZZCASH_INTEGRITY_SALT;
+    if (!salt || salt.startsWith('your-')) return true; // dev: no real salt
+    const received = (payload?.pp_SecureHash || '').toString();
+    if (!received) return false;
+    const fields = Object.keys(payload)
+      .filter((k) => k.startsWith('pp_') && k !== 'pp_SecureHash' && payload[k] !== '' && payload[k] != null)
+      .sort()
+      .map((k) => payload[k]);
+    const computed = crypto
+      .createHmac('sha256', salt)
+      .update(`${salt}&${fields.join('&')}`)
+      .digest('hex');
+    return computed.toLowerCase() === received.toLowerCase();
   }
 
   async handleEasypaisaCallback(payload: any) {
