@@ -18,8 +18,8 @@ export default function BookingConfirmationPage() {
   const justConfirmed = sp.get('confirmed') === '1';
 
   const { data: booking, isLoading } = useQuery({
-    queryKey: ['booking-pnr', pnr],
-    queryFn: () => bookingApi.getByPnr(pnr),
+    queryKey: ['ticket', pnr],
+    queryFn: () => bookingApi.getTicket(pnr),
     enabled: !!pnr,
   });
 
@@ -113,18 +113,31 @@ export default function BookingConfirmationPage() {
           </div>
         </div>
 
-        {/* Barcode placeholder */}
-        <div className="mt-6 border-t border-dashed border-slate-200 pt-4 text-center">
-          <div className="inline-flex gap-0.5">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <div
-                key={i}
-                style={{ width: 2, height: Math.random() > 0.5 ? 32 : 20 }}
-                className="bg-slate-800 rounded-sm"
-              />
-            ))}
+        {/* Route + bus details */}
+        {b.route && (
+          <div className="mt-5 border-t border-slate-100 pt-4 flex items-start gap-3 text-sm">
+            <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold">{b.route.originCity} → {b.route.destinationCity}</div>
+              {b.bus && <div className="text-xs text-slate-400">{b.bus.busType} · {b.bus.make} {b.bus.model} · {b.bus.registrationNumber}</div>}
+              {b.trip?.departureTime && (
+                <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                  <Calendar size={12} /> {new Date(b.trip.departureTime).toLocaleString('en-PK', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Scannable QR — verified at boarding */}
+        <div className="mt-6 border-t border-dashed border-slate-200 pt-4 text-center">
+          {b.qrCode ? (
+            <img src={b.qrCode} alt={`Boarding QR for ${b.pnr}`} className="mx-auto w-40 h-40" />
+          ) : (
+            <div className="text-xs text-slate-400">QR unavailable</div>
+          )}
           <div className="text-xs text-slate-400 mt-1 font-mono">{b.pnr}</div>
+          <div className="text-[11px] text-slate-400">Show this QR to the conductor at boarding</div>
         </div>
       </div>
 

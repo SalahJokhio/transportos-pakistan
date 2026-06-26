@@ -45,36 +45,25 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      // 1. Create the booking
+      // 1. Create the booking (PENDING_PAYMENT). Seats were locked on the
+      //    previous screen, so this passes the lock-ownership check.
       const booking: any = await bookingApi.create({
         tripId,
         seatNumbers: seats,
         passengerDetails: passengers,
       });
 
-      // 2. Initiate payment
-      const payment: any = await paymentApi.initiate({
-        bookingId: booking.id,
-        method: paymentMethod,
-        amount: total,
-      });
+      // 2. Record the payment intent (chosen provider). Amount is taken from the
+      //    booking server-side — we never send it.
+      await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
 
-      // 3. If JazzCash/EasyPaisa returns a postUrl, submit the form
-      if (payment.postUrl) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = payment.postUrl;
-        Object.entries(payment.fields || {}).forEach(([k, v]) => {
-          const input = document.createElement('input');
-          input.type = 'hidden'; input.name = k; input.value = String(v);
-          form.appendChild(input);
-        });
-        document.body.appendChild(form);
-        form.submit();
-      } else {
-        // Fallback: direct confirm (dev mode — no real payment)
-        router.push(`/booking/${booking.pnr}?confirmed=1`);
-      }
+      // 3. Settle it. No real JazzCash/EasyPaisa creds in dev, so mock-confirm
+      //    marks the payment COMPLETED and confirms the booking (flipping seats
+      //    to CONFIRMED via the DB unique constraint).
+      await paymentApi.mockConfirm(booking.id);
+
+      // 4. Done — show the e-ticket.
+      router.push(`/booking/${booking.pnr}?confirmed=1`);
     } catch (err: any) {
       setError(err.message || 'Booking failed. Please try again.');
     } finally {

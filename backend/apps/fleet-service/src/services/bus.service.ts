@@ -11,7 +11,8 @@ export class BusService {
   ) {}
 
   async create(dto: CreateBusDto, companyId: string): Promise<Bus> {
-    const bus = this.busRepo.create({ ...dto, companyId });
+    const seatLayout = dto.seatLayout ?? this.generateSeatLayout(dto.totalSeats);
+    const bus = this.busRepo.create({ ...dto, seatLayout, companyId });
     return this.busRepo.save(bus);
   }
 

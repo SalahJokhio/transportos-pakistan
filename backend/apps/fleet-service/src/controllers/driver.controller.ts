@@ -1,4 +1,4 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TripService } from '../services/trip.service';
@@ -13,8 +13,21 @@ import { Trip } from '../entities/trip.entity';
 @Controller('driver')
 export class DriverController {
   constructor(
+    private readonly tripService: TripService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  @Post('trips/:id/start')
+  @ApiOperation({ summary: 'Driver starts the trip (marks DEPARTED + stamps actual departure)' })
+  startTrip(@Param('id') id: string, @Request() req) {
+    return this.tripService.driverUpdateStatus(id, req.user?.sub, 'start');
+  }
+
+  @Post('trips/:id/end')
+  @ApiOperation({ summary: 'Driver ends the trip (marks ARRIVED + stamps actual arrival)' })
+  endTrip(@Param('id') id: string, @Request() req) {
+    return this.tripService.driverUpdateStatus(id, req.user?.sub, 'end');
+  }
 
   @Get('trips')
   @ApiOperation({ summary: 'Get today\'s trips assigned to this driver' })

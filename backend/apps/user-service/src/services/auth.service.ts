@@ -9,6 +9,7 @@ import { Otp } from '../entities/otp.entity';
 import { RegisterDto, LoginDto, SendOtpDto, VerifyOtpDto, ResetPasswordDto, ChangePasswordDto } from '../dto/register.dto';
 import { EncryptionUtil } from '@app/common';
 import { DateUtil } from '@app/common';
+import { UserRole } from '@app/common';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +27,12 @@ export class AuthService {
     if (existing) throw new ConflictException('Phone number already registered');
 
     const hashedPassword = await EncryptionUtil.hashPassword(dto.password);
-    const user = this.userRepo.create({ ...dto, password: hashedPassword });
+    // SECURITY: public self-registration is ALWAYS a passenger. We never trust
+    // a client-supplied role — otherwise anyone could POST {"role":"SUPER_ADMIN"}
+    // and self-promote. Elevated roles (operator/agent/admin) are granted only
+    // by an admin via PATCH /admin/users/:id/role.
+    const { role: _ignoredRole, ...safe } = dto;
+    const user = this.userRepo.create({ ...safe, role: UserRole.PASSENGER, password: hashedPassword });
     await this.userRepo.save(user);
 
     const tokens = this.generateTokens(user);
@@ -34,10 +40,15 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.userRepo.findOne({
-      where: { phone: dto.phone },
-      select: ['id', 'phone', 'email', 'firstName', 'lastName', 'role', 'password', 'isActive'],
-    });
+    // Load the FULL user (all columns) plus password. `password` has
+    // select:false on the entity, so we re-add it explicitly. Using a hand-
+    // picked select list silently dropped loyaltyPoints/cnic from the login
+    // response — keep parity with register by returning the whole profile.
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .addSelect('u.password')
+      .where('u.phone = :phone', { phone: dto.phone })
+      .getOne();
     if (!user) throw new UnauthorizedException('Invalid credentials');
     if (!user.isActive) throw new UnauthorizedException('Account disabled');
 

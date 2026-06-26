@@ -9,6 +9,7 @@ import { TripStatus } from '@app/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Trip } from '../entities/trip.entity';
+import { BookingService } from '../../../booking-service/src/services/booking.service';
 
 @ApiTags('Operator')
 @ApiBearerAuth()
@@ -19,19 +20,22 @@ export class OperatorController {
     private readonly routeService: RouteService,
     private readonly busService: BusService,
     private readonly tripService: TripService,
+    private readonly bookingService: BookingService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
 
   @Get('dashboard')
-  @ApiOperation({ summary: 'Operator dashboard summary' })
+  @ApiOperation({ summary: 'Operator dashboard: fleet + bookings + revenue + occupancy' })
   async dashboard(@Request() req) {
     const companyId = req.user?.companyId || req.user?.sub;
     const buses = await this.busService.findByCompany(companyId);
     const routes = await this.routeService.findAll();
+    const stats = await this.bookingService.getOperatorStats(companyId);
     return {
       totalBuses: buses.length,
       activeBuses: buses.filter((b) => b.isActive).length,
       totalRoutes: routes.length,
+      ...stats, // totalTrips, upcomingTrips, totalBookings, todayBookings, totalRevenue, occupancyPct
     };
   }
 

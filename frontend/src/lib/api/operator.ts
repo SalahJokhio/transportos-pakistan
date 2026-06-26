@@ -13,4 +13,5 @@ export const operatorApi = {
   createTrip: (data: any) => post('/operator/trips', data),
   updateTripStatus: (tripId: string, status: string) =>
     api.patch(`/operator/trips/${tripId}/status`, { status }),
+  getManifest: (tripId: string) => get(`/bookings/manifest/${tripId}`),
 };

@@ -13,12 +13,14 @@ import { BusController } from './controllers/bus.controller';
 import { TripController } from './controllers/trip.controller';
 import { OperatorController } from './controllers/operator.controller';
 import { DriverController } from './controllers/driver.controller';
+import { BookingModule } from '../../booking-service/src/booking.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     TypeOrmModule.forFeature([Route, Bus, Trip]),
+    BookingModule, // for operator dashboard booking/revenue stats
   ],
   controllers: [RouteController, BusController, TripController, OperatorController, DriverController],
   providers: [RouteService, BusService, TripService],

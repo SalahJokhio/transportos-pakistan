@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsArray, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, IsArray, IsBoolean, IsDateString, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BusType } from '../entities/bus.entity';
 
@@ -54,8 +55,10 @@ export class CreateBusDto {
   @IsNumber()
   totalSeats: number;
 
-  @ApiProperty()
-  seatLayout: any;
+  @ApiPropertyOptional({ description: 'Seat layout; auto-generated from totalSeats if omitted' })
+  @IsObject()
+  @IsOptional()
+  seatLayout?: any;
 }
 
 export class CreateTripDto {
@@ -94,6 +97,7 @@ export class SearchTripsDto {
   date: string;
 
   @ApiPropertyOptional()
+  @Type(() => Number) // query params arrive as strings — coerce before @IsNumber
   @IsNumber()
   @IsOptional()
   passengers?: number;
