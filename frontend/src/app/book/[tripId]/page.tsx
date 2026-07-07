@@ -3,17 +3,73 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { tripApi, bookingApi } from '@/lib/api/endpoints';
 import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Disc3, DoorClosed, Armchair } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 
-function SeatButton({ seat, status, selected, onClick }: any) {
-  const base = 'w-10 h-10 rounded-lg text-xs font-semibold border-2 transition-all';
-  if (status === 'BOOKED' || status === 'LOCKED')
-    return <div className={`${base} bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed flex items-center justify-center`}>{seat}</div>;
+type Seat = { seatNumber: string; row: number; col: number; type?: string };
+
+// A single seat, shaped like a seat-back, coloured by its live status.
+function SeatButton({
+  seat,
+  status,
+  selected,
+  onClick,
+}: {
+  seat: Seat;
+  status: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const base =
+    'relative w-9 h-10 rounded-t-lg rounded-b-sm text-[11px] font-semibold border transition-all flex items-center justify-center';
+  const taken = status === 'BOOKED';
+  const held = status === 'LOCKED';
+
+  if (taken)
+    return (
+      <div
+        title={`Seat ${seat.seatNumber} — booked`}
+        className={`${base} bg-slate-300 border-slate-300 text-slate-500 cursor-not-allowed`}
+      >
+        {seat.seatNumber}
+      </div>
+    );
+  if (held)
+    return (
+      <div
+        title={`Seat ${seat.seatNumber} — on hold`}
+        className={`${base} bg-amber-100 border-amber-300 text-amber-600 cursor-not-allowed`}
+      >
+        {seat.seatNumber}
+      </div>
+    );
   if (selected)
-    return <button onClick={onClick} className={`${base} bg-orange-500 border-orange-500 text-white`}>{seat}</button>;
-  return <button onClick={onClick} className={`${base} bg-white border-slate-300 hover:border-orange-400 text-slate-700`}>{seat}</button>;
+    return (
+      <button
+        onClick={onClick}
+        title={`Seat ${seat.seatNumber} — selected`}
+        className={`${base} bg-orange-500 border-orange-500 text-white shadow`}
+      >
+        {seat.seatNumber}
+      </button>
+    );
+  return (
+    <button
+      onClick={onClick}
+      title={`Seat ${seat.seatNumber} — ${seat.type || 'available'}`}
+      className={`${base} bg-white border-slate-300 text-slate-600 hover:border-orange-400 hover:bg-orange-50`}
+    >
+      {seat.seatNumber}
+    </button>
+  );
 }
+
+const LEGEND: [string, string][] = [
+  ['bg-white border-slate-300', 'Available'],
+  ['bg-orange-500 border-orange-500', 'Selected'],
+  ['bg-amber-100 border-amber-300', 'On hold'],
+  ['bg-slate-300 border-slate-300', 'Booked'],
+];
 
 export default function BookPage() {
   const { tripId } = useParams<{ tripId: string }>();
@@ -32,71 +88,105 @@ export default function BookPage() {
     },
   });
 
-  const toggleSeat = (seat: string) => {
-    setSelected((prev) => prev.includes(seat) ? prev.filter((s) => s !== seat) : [...prev, seat]);
+  const toggleSeat = (seatNumber: string, status: string) => {
+    if (status === 'BOOKED' || status === 'LOCKED') return;
+    setSelected((prev) =>
+      prev.includes(seatNumber) ? prev.filter((s) => s !== seatNumber) : [...prev, seatNumber],
+    );
   };
 
-  if (!seatMap) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-slate-400">Loading seat map...</div>;
+  if (!seatMap) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-slate-400">Loading seat map…</div>;
 
-  const seats = Object.entries(seatMap.seatAvailability || {});
-  const seatsPerRow = 4;
-  const rows: string[][] = [];
-  for (let i = 0; i < seats.length; i += seatsPerRow) {
-    rows.push(seats.slice(i, i + seatsPerRow).map(([k]) => k));
+  const availability: Record<string, string> = seatMap.seatAvailability || {};
+  const seatsPerRow: number = seatMap.seatLayout?.seatsPerRow || 4;
+  const half = Math.ceil(seatsPerRow / 2);
+
+  // Build the real bus geometry from the bus layout; fall back to a simple grid.
+  let layout: Seat[] = seatMap.seatLayout?.layout as Seat[] | undefined ?? [];
+  if (!layout.length) {
+    layout = Object.keys(availability).map((seatNumber, i) => ({
+      seatNumber,
+      row: Math.floor(i / seatsPerRow) + 1,
+      col: (i % seatsPerRow) + 1,
+    }));
   }
 
+  const byRow = new Map<number, Seat[]>();
+  layout.forEach((s) => {
+    if (!byRow.has(s.row)) byRow.set(s.row, []);
+    byRow.get(s.row)!.push(s);
+  });
+  const rowNums = [...byRow.keys()].sort((a, b) => a - b);
+
+  const pricePer = Number(seatMap.basePrice ?? trip?.basePrice ?? 0);
+  const available = Object.values(availability).filter((s) => s === 'AVAILABLE').length;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-2">Select Your Seats</h1>
-      <p className="text-slate-500 text-sm mb-8">Click available seats to select them</p>
+    <div className="max-w-lg mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-1">Select your seats</h1>
+      <p className="text-slate-500 text-sm mb-5">
+        {seatMap.busType && <span className="font-medium text-slate-600">{seatMap.busType} bus</span>} ·{' '}
+        {available} seats available · Rs {pricePer.toLocaleString()}/seat
+      </p>
 
-      <div className="card mb-6">
-        {/* Legend */}
-        <div className="flex gap-6 text-xs text-slate-500 mb-6">
-          {[['bg-white border-slate-300', 'Available'], ['bg-orange-500', 'Selected'], ['bg-slate-100 border-slate-200', 'Booked']].map(([cls, label]) => (
-            <div key={label} className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded border-2 ${cls}`} />
-              {label}
-            </div>
-          ))}
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 text-xs text-slate-500 mb-4">
+        {LEGEND.map(([cls, label]) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className={`w-4 h-4 rounded-t-md rounded-b-sm border ${cls}`} />
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* The bus */}
+      <div className="mx-auto w-fit bg-slate-50 border-2 border-slate-200 rounded-t-[2.5rem] rounded-b-2xl px-5 pt-5 pb-6">
+        {/* Front: driver + door */}
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-1.5 text-slate-400" title="Driver">
+            <Disc3 size={26} />
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-slate-400 border border-dashed border-slate-300 rounded-md px-2 py-1">
+            <DoorClosed size={12} /> Door
+          </div>
         </div>
 
-        {/* Driver row */}
-        <div className="flex justify-end mb-4">
-          <div className="w-10 h-10 rounded-lg bg-slate-800 text-white text-xs flex items-center justify-center">Driver</div>
-        </div>
-
-        {/* Seat grid */}
+        {/* Seat rows: left block · aisle · right block */}
         <div className="space-y-2">
-          {rows.map((row, i) => (
-            <div key={i} className="flex gap-2 justify-center">
-              {row.map((seat, j) => (
-                <>
-                  {j === 2 && <div key="aisle" className="w-6" />}
-                  <SeatButton
-                    key={seat}
-                    seat={seat}
-                    status={seatMap.seatAvailability[seat]}
-                    selected={selected.includes(seat)}
-                    onClick={() => toggleSeat(seat)}
-                  />
-                </>
-              ))}
-            </div>
-          ))}
+          {rowNums.map((rn) => {
+            const seats = byRow.get(rn)!.slice().sort((a, b) => a.col - b.col);
+            const left = seats.filter((s) => s.col <= half);
+            const right = seats.filter((s) => s.col > half);
+            const renderSeat = (s: Seat) => (
+              <SeatButton
+                key={s.seatNumber}
+                seat={s}
+                status={availability[s.seatNumber] || 'AVAILABLE'}
+                selected={selected.includes(s.seatNumber)}
+                onClick={() => toggleSeat(s.seatNumber, availability[s.seatNumber] || 'AVAILABLE')}
+              />
+            );
+            return (
+              <div key={rn} className="flex items-center justify-center gap-1.5">
+                {left.map(renderSeat)}
+                <div className="w-6 text-center text-[9px] text-slate-300">▪</div>
+                {right.map(renderSeat)}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Summary */}
+      {/* Summary + continue */}
       {selected.length > 0 && (
-        <div className="card mb-4">
+        <div className="card mt-6 mb-4">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-slate-500">Selected seats</span>
+            <span className="text-slate-500 flex items-center gap-1.5"><Armchair size={15} /> Selected</span>
             <span className="font-medium">{selected.join(', ')}</span>
           </div>
           <div className="flex justify-between font-bold text-lg">
             <span>Total</span>
-            <span className="text-orange-600">Rs {((trip?.basePrice || 0) * selected.length).toLocaleString()}</span>
+            <span className="text-orange-600">Rs {(pricePer * selected.length).toLocaleString()}</span>
           </div>
         </div>
       )}
@@ -107,10 +197,12 @@ export default function BookPage() {
           if (!isAuthenticated) return router.push('/auth/login');
           lockMutation.mutate();
         }}
-        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40"
+        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 mt-6"
       >
         <Check size={16} />
-        {lockMutation.isPending ? 'Reserving...' : `Continue with ${selected.length} seat${selected.length !== 1 ? 's' : ''}`}
+        {lockMutation.isPending
+          ? 'Reserving…'
+          : `Continue with ${selected.length} seat${selected.length !== 1 ? 's' : ''}`}
       </button>
     </div>
   );

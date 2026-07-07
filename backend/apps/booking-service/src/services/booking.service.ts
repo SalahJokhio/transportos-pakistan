@@ -19,6 +19,7 @@ import { User } from '../../../user-service/src/entities/user.entity';
 import { LoyaltyTransaction, LoyaltyTransactionType } from '../../../user-service/src/entities/loyalty-transaction.entity';
 import { Trip } from '../../../fleet-service/src/entities/trip.entity';
 import { Route } from '../../../fleet-service/src/entities/route.entity';
+import { Bus } from '../../../fleet-service/src/entities/bus.entity';
 import { NotificationService } from '../../../notification-service/src/notification.service';
 
 // 1 loyalty point per Rs 10 spent
@@ -38,6 +39,7 @@ export class BookingService {
     @InjectRepository(LoyaltyTransaction) private readonly loyaltyRepo: Repository<LoyaltyTransaction>,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
+    @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
     private readonly seatLockService: SeatLockService,
     private readonly pricingService: PricingService,
     private readonly notificationService: NotificationService,
@@ -447,6 +449,17 @@ export class BookingService {
       // Don't override a real BOOKED seat — only AVAILABLE → LOCKED.
       if (seatAvailability[seat] === 'AVAILABLE') seatAvailability[seat] = 'LOCKED';
     }
-    return { tripId, seatAvailability };
+
+    // Include the real bus geometry so the UI can draw an actual bus (driver,
+    // aisle, window/aisle seats) instead of a naive 4-wide grid.
+    const bus = await this.busRepo.findOne({ where: { id: trip.busId } });
+    return {
+      tripId,
+      seatAvailability,
+      seatLayout: bus?.seatLayout ?? null,
+      busType: bus?.busType ?? null,
+      totalSeats: bus?.totalSeats ?? Object.keys(seatAvailability).length,
+      basePrice: Number(trip.basePrice),
+    };
   }
 }
