@@ -90,7 +90,11 @@ export default function BookPage() {
   const [gender, setGender] = useState<'M' | 'F'>('M');
 
   const { data: trip } = useQuery({ queryKey: ['trip', tripId], queryFn: () => tripApi.getById(tripId) });
-  const { data: seatMap } = useQuery({ queryKey: ['seats', tripId], queryFn: () => tripApi.getSeatMap(tripId) });
+  const { data: seatMap, isLoading, isError } = useQuery({
+    queryKey: ['seats', tripId],
+    queryFn: () => tripApi.getSeatMap(tripId),
+    retry: 1,
+  });
 
   const lockMutation = useMutation({
     mutationFn: () => bookingApi.lockSeats({ tripId, seatNumbers: selected }),
@@ -107,7 +111,15 @@ export default function BookPage() {
     );
   };
 
-  if (!seatMap) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-slate-400">Loading seat map…</div>;
+  if (isLoading) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-slate-400">Loading seat map…</div>;
+  if (isError || !seatMap)
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <p className="text-slate-500 mb-1">Couldn&apos;t load this trip.</p>
+        <p className="text-slate-400 text-sm mb-4">The trip may have expired or the link is invalid.</p>
+        <button onClick={() => router.push('/search')} className="btn-primary text-sm">Search trips</button>
+      </div>
+    );
 
   const availability: Record<string, string> = seatMap.seatAvailability || {};
   const seatsPerRow: number = seatMap.seatLayout?.seatsPerRow || 4;
