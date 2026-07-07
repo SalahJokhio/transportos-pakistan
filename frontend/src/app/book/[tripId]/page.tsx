@@ -12,11 +12,13 @@ type Seat = { seatNumber: string; row: number; col: number; type?: string };
 function SeatButton({
   seat,
   status,
+  gender,
   selected,
   onClick,
 }: {
   seat: Seat;
   status: string;
+  gender?: string;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -25,15 +27,23 @@ function SeatButton({
   const taken = status === 'BOOKED';
   const held = status === 'LOCKED';
 
-  if (taken)
+  if (taken) {
+    // Female-occupied seats are pink so a booker can seat by gender.
+    const cls =
+      gender === 'F'
+        ? 'bg-pink-200 border-pink-300 text-pink-700'
+        : gender === 'M'
+          ? 'bg-blue-200 border-blue-300 text-blue-700'
+          : 'bg-slate-300 border-slate-300 text-slate-500';
     return (
       <div
-        title={`Seat ${seat.seatNumber} — booked`}
-        className={`${base} bg-slate-300 border-slate-300 text-slate-500 cursor-not-allowed`}
+        title={`Seat ${seat.seatNumber} — booked${gender === 'F' ? ' (female)' : gender === 'M' ? ' (male)' : ''}`}
+        className={`${base} ${cls} cursor-not-allowed`}
       >
         {seat.seatNumber}
       </div>
     );
+  }
   if (held)
     return (
       <div
@@ -69,6 +79,7 @@ const LEGEND: [string, string][] = [
   ['bg-orange-500 border-orange-500', 'Selected'],
   ['bg-amber-100 border-amber-300', 'On hold'],
   ['bg-slate-300 border-slate-300', 'Booked'],
+  ['bg-pink-200 border-pink-300', 'Female'],
 ];
 
 export default function BookPage() {
@@ -76,6 +87,7 @@ export default function BookPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [selected, setSelected] = useState<string[]>([]);
+  const [gender, setGender] = useState<'M' | 'F'>('M');
 
   const { data: trip } = useQuery({ queryKey: ['trip', tripId], queryFn: () => tripApi.getById(tripId) });
   const { data: seatMap } = useQuery({ queryKey: ['seats', tripId], queryFn: () => tripApi.getSeatMap(tripId) });
@@ -83,7 +95,7 @@ export default function BookPage() {
   const lockMutation = useMutation({
     mutationFn: () => bookingApi.lockSeats({ tripId, seatNumbers: selected }),
     onSuccess: (res: any) => {
-      if (res.success) router.push(`/checkout?tripId=${tripId}&seats=${selected.join(',')}`);
+      if (res.success) router.push(`/checkout?tripId=${tripId}&seats=${selected.join(',')}&gender=${gender}`);
       else alert(res.message);
     },
   });
@@ -129,6 +141,25 @@ export default function BookPage() {
         {available} seats available · Rs {pricePer.toLocaleString()}/seat
       </p>
 
+      {/* Gender toggle — the booker's gender applies to the seats they pick. */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm text-slate-500">Booking as:</span>
+        <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+          <button
+            onClick={() => setGender('M')}
+            className={`px-4 py-1.5 font-medium ${gender === 'M' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            Male
+          </button>
+          <button
+            onClick={() => setGender('F')}
+            className={`px-4 py-1.5 font-medium ${gender === 'F' ? 'bg-pink-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            Female
+          </button>
+        </div>
+      </div>
+
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-xs text-slate-500 mb-4">
         {LEGEND.map(([cls, label]) => (
@@ -162,6 +193,7 @@ export default function BookPage() {
                 key={s.seatNumber}
                 seat={s}
                 status={availability[s.seatNumber] || 'AVAILABLE'}
+                gender={seatMap.seatGenders?.[s.seatNumber]}
                 selected={selected.includes(s.seatNumber)}
                 onClick={() => toggleSeat(s.seatNumber, availability[s.seatNumber] || 'AVAILABLE')}
               />

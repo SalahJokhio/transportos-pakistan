@@ -16,6 +16,7 @@ export default function CheckoutPage() {
 
   const tripId = sp.get('tripId') || '';
   const seats = (sp.get('seats') || '').split(',').filter(Boolean);
+  const defaultGender = (sp.get('gender') === 'F' ? 'F' : 'M') as 'M' | 'F';
 
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
@@ -24,7 +25,7 @@ export default function CheckoutPage() {
   });
 
   const [passengers, setPassengers] = useState(
-    seats.map((s) => ({ seatNumber: s, name: '', cnic: '' })),
+    seats.map((s) => ({ seatNumber: s, name: '', cnic: '', gender: defaultGender })),
   );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('jazzcash');
   const [loading, setLoading] = useState(false);
@@ -87,7 +88,25 @@ export default function CheckoutPage() {
             <div className="space-y-5">
               {passengers.map((p, i) => (
                 <div key={i} className="border border-slate-100 rounded-xl p-4">
-                  <div className="text-sm font-semibold text-slate-500 mb-3">Seat {p.seatNumber}</div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-semibold text-slate-500">Seat {p.seatNumber}</div>
+                    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+                      <button
+                        type="button"
+                        onClick={() => updatePassenger(i, 'gender', 'M')}
+                        className={`px-3 py-1 font-medium ${p.gender === 'M' ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        Male
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updatePassenger(i, 'gender', 'F')}
+                        className={`px-3 py-1 font-medium ${p.gender === 'F' ? 'bg-pink-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        Female
+                      </button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Full Name *</label>

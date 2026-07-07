@@ -16,7 +16,7 @@ export class CreateBookingDto {
   @ApiProperty()
   @IsArray()
   @IsOptional()
-  passengerDetails: Array<{ name: string; cnic?: string; seatNumber: string }>;
+  passengerDetails: Array<{ name: string; cnic?: string; seatNumber: string; gender?: 'M' | 'F' }>;
 
   @ApiPropertyOptional()
   @IsString()

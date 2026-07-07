@@ -40,6 +40,11 @@ export class BookingSeat {
   @Column({ nullable: true })
   passengerId: string;
 
+  // Passenger gender for this seat: 'M' | 'F' | null. Drives female-seat colour
+  // and the "no male beside a lone female" rule (Bookkaru-style seating).
+  @Column({ type: 'varchar', length: 1, nullable: true })
+  gender: string;
+
   // 'HELD' while awaiting payment, 'CONFIRMED' once paid, 'CANCELLED' on release.
   @Column({ default: 'HELD' })
   status: 'HELD' | 'CONFIRMED' | 'CANCELLED';

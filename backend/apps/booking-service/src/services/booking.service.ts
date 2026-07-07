@@ -114,6 +114,16 @@ export class BookingService {
       throw new ConflictException(`Seats already booked: ${alreadyBooked.join(', ')}`);
     }
 
+    // Gender-seating rule: nobody may take the pair-seat next to a confirmed
+    // passenger of the opposite gender.
+    const seatGender: Record<string, string> = {};
+    for (const p of dto.passengerDetails || []) {
+      if (p?.seatNumber && (p.gender === 'M' || p.gender === 'F')) seatGender[p.seatNumber] = p.gender;
+    }
+    if (Object.keys(seatGender).length) {
+      await this.enforceGenderSeating(dto.tripId, trip.busId, seatGender);
+    }
+
     const price = this.pricingService.calculate(Number(trip.basePrice), dto.seatNumbers.length);
     const pnr = StringUtil.generateReference('TOS');
 
@@ -140,12 +150,59 @@ export class BookingService {
           seatNumber,
           bookingId: saved.id,
           passengerId,
+          gender: seatGender[seatNumber] ?? null,
           status: 'HELD' as const,
         }),
       );
       await em.save(BookingSeat, seatRows);
       return saved;
     });
+  }
+
+  /** Neighbour column within a 2-seat block: (1,2) and (3,4) are pairs. */
+  private pairCol(col: number): number {
+    return col % 2 === 1 ? col + 1 : col - 1;
+  }
+
+  /**
+   * Enforce Bookkaru-style gender seating: a passenger cannot occupy the seat
+   * paired (same row, across no aisle) with a CONFIRMED passenger of the
+   * opposite gender. Needs the bus geometry to know which seats are neighbours.
+   */
+  private async enforceGenderSeating(
+    tripId: string,
+    busId: string,
+    requested: Record<string, string>,
+  ): Promise<void> {
+    const bus = await this.busRepo.findOne({ where: { id: busId } });
+    const layout = bus?.seatLayout?.layout as
+      | Array<{ seatNumber: string; row: number; col: number }>
+      | undefined;
+    if (!layout?.length) return; // no geometry → can't reason about adjacency
+
+    const pos = new Map<string, { row: number; col: number }>();
+    const byRowCol = new Map<string, string>();
+    for (const s of layout) {
+      pos.set(s.seatNumber, { row: s.row, col: s.col });
+      byRowCol.set(`${s.row}:${s.col}`, s.seatNumber);
+    }
+
+    const confirmed = await this.bookingSeatRepo.find({ where: { tripId, status: 'CONFIRMED' } });
+    const occupiedGender = new Map<string, string>();
+    for (const c of confirmed) if (c.gender) occupiedGender.set(c.seatNumber, c.gender);
+
+    for (const [seat, g] of Object.entries(requested)) {
+      const p = pos.get(seat);
+      if (!p) continue;
+      const neighbour = byRowCol.get(`${p.row}:${this.pairCol(p.col)}`);
+      if (!neighbour) continue; // single seat — no pair
+      const ng = occupiedGender.get(neighbour);
+      if (ng && ng !== g) {
+        throw new ConflictException(
+          `Seat ${seat} is next to a ${ng === 'F' ? 'female' : 'male'} passenger — please pick another seat`,
+        );
+      }
+    }
   }
 
   async findByPnr(pnr: string): Promise<Booking> {
@@ -453,9 +510,21 @@ export class BookingService {
     // Include the real bus geometry so the UI can draw an actual bus (driver,
     // aisle, window/aisle seats) instead of a naive 4-wide grid.
     const bus = await this.busRepo.findOne({ where: { id: trip.busId } });
+
+    // Gender of each occupied seat → UI paints female seats pink.
+    const seatRows = await this.bookingSeatRepo.find({
+      where: [
+        { tripId, status: 'CONFIRMED' },
+        { tripId, status: 'HELD' },
+      ],
+    });
+    const seatGenders: Record<string, string> = {};
+    for (const s of seatRows) if (s.gender) seatGenders[s.seatNumber] = s.gender;
+
     return {
       tripId,
       seatAvailability,
+      seatGenders,
       seatLayout: bus?.seatLayout ?? null,
       busType: bus?.busType ?? null,
       totalSeats: bus?.totalSeats ?? Object.keys(seatAvailability).length,
