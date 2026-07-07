@@ -11,6 +11,7 @@ import '../data/api_client.dart';
 class LocationService {
   final ApiClient _api = ApiClient();
   StreamSubscription<Position>? _sub;
+  Timer? _heartbeat;
   String? _activeTripId;
 
   /// Ask for location permission. For true background tracking the driver must
@@ -50,39 +51,49 @@ class LocationService {
   }
 
   Future<void> startTracking(String tripId) async {
-    if (_sub != null) return; // already tracking
+    if (_sub != null || _heartbeat != null) return; // already tracking
     _activeTripId = tripId;
 
-    // Send one ping immediately from the last-known/current fix so tracking
-    // shows up right away instead of waiting for the first stream emission.
-    try {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null) {
-        _api.sendLocation(tripId, last.latitude, last.longitude, last.speed);
-      } else {
-        final now = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium, // geolocator 11.x API
-        ).timeout(const Duration(seconds: 8));
-        _api.sendLocation(tripId, now.latitude, now.longitude, now.speed);
-      }
-    } catch (_) {/* first-fix best effort */}
+    // Immediate first ping so tracking shows up right away.
+    await _sendOnce();
 
+    // Foreground-service stream: keeps location alive in the background and
+    // pushes fresh positions as the bus moves.
     _sub = Geolocator.getPositionStream(locationSettings: _settings()).listen(
       (Position pos) {
         if (_activeTripId == null) return;
-        // Fire-and-forget — a dropped ping must never break the stream.
         _api.sendLocation(_activeTripId!, pos.latitude, pos.longitude, pos.speed);
       },
       onError: (_) {}, // GPS/network hiccups don't crash the trip
       cancelOnError: false,
     );
+
+    // Guaranteed 10s heartbeat: a stationary device's provider often stops
+    // emitting, so we also push the last-known position on a timer. The bus
+    // stays visible on the map even when parked.
+    _heartbeat = Timer.periodic(const Duration(seconds: 10), (_) => _sendOnce());
+  }
+
+  /// Send one position now from the best available fix. Fire-and-forget.
+  Future<void> _sendOnce() async {
+    final tripId = _activeTripId;
+    if (tripId == null) return;
+    try {
+      Position? pos = await Geolocator.getLastKnownPosition();
+      pos ??= await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium, // geolocator 11.x API
+      ).timeout(const Duration(seconds: 8));
+      _api.sendLocation(tripId, pos.latitude, pos.longitude, pos.speed);
+    } catch (_) {/* best effort */}
   }
 
   void stopTracking() {
+    _heartbeat?.cancel();
+    _heartbeat = null;
     _sub?.cancel();
     _sub = null;
     _activeTripId = null;
   }
 
-  bool get isTracking => _sub != null;
+  bool get isTracking => _sub != null || _heartbeat != null;
 }
