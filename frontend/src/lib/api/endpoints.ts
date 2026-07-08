@@ -52,6 +52,8 @@ export const driverApi = {
   endTrip: (tripId: string) => post(`/driver/trips/${tripId}/end`),
   ping: (data: { tripId: string; lat: number; lng: number; speed?: number }) =>
     post('/tracking/location', data),
+  // Company-side: verify a driver's portable record by CNIC
+  verifyByCnic: (cnic: string) => get('/drivers/verify', { params: { cnic } }),
 };
 
 export const agentApi = {
