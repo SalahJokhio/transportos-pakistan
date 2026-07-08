@@ -11,15 +11,24 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..forward();
     _checkAuth();
   }
 
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 1600));
     if (!mounted) return;
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: StorageKeys.accessToken);
@@ -29,22 +38,51 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.green,
+      backgroundColor: AppColors.navy,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.directions_bus, color: Colors.white, size: 44),
+        child: FadeTransition(
+          opacity: _c,
+          child: ScaleTransition(
+            scale: Tween(begin: 0.9, end: 1.0).animate(
+              CurvedAnimation(parent: _c, curve: Curves.easeOutBack),
             ),
-            const SizedBox(height: 20),
-            const Text('TransportOS', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-            const Text('Driver', style: TextStyle(color: Colors.white70, fontSize: 16)),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(color: Colors.white),
-          ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  child: const Icon(Icons.directions_bus_rounded, color: Colors.white, size: 46),
+                ),
+                const SizedBox(height: 22),
+                const Text('TransportOS',
+                    style: TextStyle(color: Colors.white, fontSize: 27, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('DRIVER',
+                      style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 3)),
+                ),
+                const SizedBox(height: 52),
+                const SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

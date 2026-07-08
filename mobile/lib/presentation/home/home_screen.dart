@@ -26,9 +26,14 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final user = await ApiClient().getMe();
       final trips = await ApiClient().getMyTrips();
-      setState(() { _user = user; _trips = trips; _loading = false; });
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _trips = trips;
+        _loading = false;
+      });
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -39,79 +44,144 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  int get _activeCount =>
+      _trips.where((t) => ['DEPARTED', 'IN_TRANSIT', 'BOARDING'].contains(t['status'])).length;
+
   @override
   Widget build(BuildContext context) {
+    final name = '${_user?['firstName'] ?? ''} ${_user?['lastName'] ?? ''}'.trim();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Dashboard'),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Logout'),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Driver info card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(children: [
+      backgroundColor: AppColors.surface,
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // ---- Navy header ----
+            SliverToBoxAdapter(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.navy,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 56, 20, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
                         CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppTheme.primary.withOpacity(0.1),
-                          child: const Icon(Icons.person, color: AppTheme.primary, size: 32),
+                          radius: 24,
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                          child: const Icon(Icons.person, color: AppColors.primary, size: 26),
                         ),
-                        const SizedBox(width: 14),
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(
-                            '${_user?['firstName'] ?? ''} ${_user?['lastName'] ?? ''}'.trim().isEmpty
-                                ? 'Driver'
-                                : '${_user?['firstName']} ${_user?['lastName']}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_greeting, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                              Text(name.isEmpty ? 'Driver' : name,
+                                  style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
+                            ],
                           ),
-                          Text(_user?['phone'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('Driver', style: TextStyle(color: AppTheme.green, fontSize: 11, fontWeight: FontWeight.w600)),
-                          ),
-                        ]),
-                      ]),
+                        ),
+                        IconButton(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout_rounded, color: Colors.white70),
+                          tooltip: 'Logout',
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Today's trips
-                  const Text('Today\'s Trips', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                  const SizedBox(height: 10),
-
-                  if (_trips.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(children: [
-                          Icon(Icons.directions_bus_outlined, size: 48, color: Colors.grey.shade300),
-                          const SizedBox(height: 12),
-                          const Text('No trips assigned today', style: TextStyle(color: Colors.grey)),
-                          const SizedBox(height: 4),
-                          const Text('Contact your dispatcher', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        ]),
-                      ),
-                    )
-                  else
-                    ..._trips.map((trip) => _TripCard(trip: trip)).toList(),
-                ]),
+                    const SizedBox(height: 18),
+                    // Stat strip
+                    Row(
+                      children: [
+                        _stat('${_trips.length}', 'Trips today', Icons.event_note_rounded),
+                        const SizedBox(width: 12),
+                        _stat('$_activeCount', 'Active now', Icons.local_shipping_rounded),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
+
+            // ---- Body ----
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+              sliver: _loading
+                  ? const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 60),
+                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                      ),
+                    )
+                  : SliverList(
+                      delegate: SliverChildListDelegate([
+                        const Text('Today\'s trips',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.text)),
+                        const SizedBox(height: 12),
+                        if (_trips.isEmpty) _emptyState() else ..._trips.map((t) => _TripCard(trip: t)),
+                      ]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String value, String label, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary, size: 22),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return Container(
+      margin: const EdgeInsets.only(top: 30),
+      padding: const EdgeInsets.all(36),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(Icons.directions_bus_outlined, size: 56, color: Colors.grey.shade300),
+          const SizedBox(height: 14),
+          const Text('No trips assigned today',
+              style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          const Text('Pull down to refresh · contact your dispatcher',
+              style: TextStyle(color: Colors.grey, fontSize: 12.5), textAlign: TextAlign.center),
+        ],
+      ),
     );
   }
 }
@@ -120,50 +190,93 @@ class _TripCard extends StatelessWidget {
   final Map<String, dynamic> trip;
   const _TripCard({required this.trip});
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'SCHEDULED': return Colors.blue;
-      case 'BOARDING': return Colors.orange;
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'SCHEDULED':
+        return AppColors.info;
+      case 'BOARDING':
+        return AppColors.warning;
       case 'DEPARTED':
-      case 'IN_TRANSIT': return Colors.green;
-      default: return Colors.grey;
+      case 'IN_TRANSIT':
+        return AppColors.success;
+      case 'ARRIVED':
+        return AppColors.textMuted;
+      default:
+        return AppColors.textMuted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final status = trip['status'] as String? ?? 'SCHEDULED';
-    return Card(
+    final c = _statusColor(status);
+    final active = ['DEPARTED', 'IN_TRANSIT', 'BOARDING'].contains(status);
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.pushNamed(context, AppRoutes.activeTrip, arguments: trip['id'] as String),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(
-                _formatTime(trip['departureTime'] as String? ?? ''),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _statusColor(status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => Navigator.pushNamed(context, AppRoutes.activeTrip, arguments: trip['id'] as String),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Time block
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_formatTime(trip['departureTime'] as String? ?? ''),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: AppColors.text)),
+                    const Text('Departure', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  ],
                 ),
-                child: Text(status, style: TextStyle(color: _statusColor(status), fontSize: 11, fontWeight: FontWeight.w600)),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            Row(children: [
-              const Icon(Icons.attach_money, size: 14, color: Colors.grey),
-              Text('Rs ${trip['basePrice']}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-              const Spacer(),
-              const Icon(Icons.arrow_forward, size: 14, color: AppTheme.primary),
-              const Text(' Start Trip', style: TextStyle(color: AppTheme.primary, fontSize: 13, fontWeight: FontWeight.w600)),
-            ]),
-          ]),
+                const SizedBox(width: 16),
+                Container(width: 1, height: 38, color: AppColors.border),
+                const SizedBox(width: 16),
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trip ${(trip['id'] as String).substring(0, 6).toUpperCase()}',
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text)),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        const Icon(Icons.payments_outlined, size: 13, color: AppColors.textMuted),
+                        const SizedBox(width: 4),
+                        Text('Rs ${trip['basePrice']}',
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5)),
+                      ]),
+                    ],
+                  ),
+                ),
+                // Status + chevron
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                      child: Text(status.replaceAll('_', ' '),
+                          style: TextStyle(color: c, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Text(active ? 'Manage' : 'Start',
+                          style: const TextStyle(color: AppColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 18),
+                    ]),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
