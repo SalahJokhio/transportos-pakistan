@@ -71,4 +71,10 @@ class ApiClient {
     final res = await dio.get(ApiConstants.manifest(tripId));
     return res.data as Map<String, dynamic>;
   }
+
+  /// This driver's portable record (trips, routes, km, experience, rating).
+  Future<Map<String, dynamic>> getProfile() async {
+    final res = await dio.get('/driver/profile');
+    return res.data as Map<String, dynamic>;
+  }
 }

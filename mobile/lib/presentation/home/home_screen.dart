@@ -96,6 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         IconButton(
+                          onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
+                          icon: const Icon(Icons.badge_outlined, color: Colors.white70),
+                          tooltip: 'My record',
+                        ),
+                        IconButton(
                           onPressed: _logout,
                           icon: const Icon(Icons.logout_rounded, color: Colors.white70),
                           tooltip: 'Logout',
