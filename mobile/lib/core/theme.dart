@@ -42,7 +42,8 @@ class AppTheme {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            elevation: 0,
+            elevation: 2,
+            shadowColor: AppColors.primary.withValues(alpha: 0.45),
             minimumSize: const Size.fromHeight(52),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),

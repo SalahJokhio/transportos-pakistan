@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../data/api_client.dart';
 import '../../routes/app_router.dart';
 
@@ -119,11 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
               sliver: _loading
-                  ? const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 60),
-                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                      ),
+                  ? SliverList(
+                      delegate: SliverChildListDelegate([
+                        const Text('Today\'s trips',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.text)),
+                        const SizedBox(height: 12),
+                        ...List.generate(3, (_) => const TripCardSkeleton()),
+                      ]),
                     )
                   : SliverList(
                       delegate: SliverChildListDelegate([
@@ -217,6 +220,9 @@ class _TripCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6)),
+        ],
       ),
       child: Material(
         color: Colors.transparent,

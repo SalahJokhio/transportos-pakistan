@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../data/api_client.dart';
 import '../../routes/app_router.dart';
 import '../../services/location_service.dart';
@@ -212,34 +213,31 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: (_tracking ? AppColors.success : AppColors.navy).withValues(alpha: 0.28),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (_tracking)
-                          Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.25),
+                    _tracking
+                        ? const PulseDot(color: Colors.white, size: 11)
+                        : Container(
+                            width: 26,
+                            height: 26,
+                            alignment: Alignment.center,
+                            child: Container(
+                              width: 11,
+                              height: 11,
+                              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white54),
                             ),
                           ),
-                        Container(
-                          width: 11,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _tracking ? Colors.white : Colors.white54,
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -292,6 +290,9 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6)),
+        ],
       ),
       child: child,
     );
