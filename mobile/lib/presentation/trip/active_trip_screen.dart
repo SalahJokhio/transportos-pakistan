@@ -22,10 +22,27 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   int _statusIndex = 0;
 
   @override
-  void dispose() {
-    _locationService.stopTracking();
-    super.dispose();
+  void initState() {
+    super.initState();
+    // Reflect whether GPS is already broadcasting for this trip (the service is
+    // a singleton and keeps running across navigation).
+    _tracking = _locationService.activeTripId == widget.tripId;
+    _restoreStatus();
   }
+
+  // Restore the real trip status from the server so reopening a trip doesn't
+  // reset it back to SCHEDULED.
+  Future<void> _restoreStatus() async {
+    try {
+      final trip = await ApiClient().getTrip(widget.tripId);
+      final idx = _statuses.indexOf(trip['status'] as String? ?? 'SCHEDULED');
+      if (mounted && idx >= 0) setState(() => _statusIndex = idx);
+    } catch (_) {/* keep default */}
+  }
+
+  // Note: GPS is deliberately NOT stopped on dispose — the singleton service
+  // keeps broadcasting (via the foreground service) until the driver ends the
+  // trip or taps stop.
 
   Future<void> _toggleTracking() async {
     if (_tracking) {

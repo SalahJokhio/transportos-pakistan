@@ -9,10 +9,20 @@ import '../data/api_client.dart';
 /// backgrounded or the screen is off (the whole reason the driver needs a
 /// native app, not the web).
 class LocationService {
+  // Singleton so GPS keeps broadcasting even when the driver navigates away from
+  // the active-trip screen (or backgrounds the app) — it only stops on an
+  // explicit stop / trip end.
+  static final LocationService _instance = LocationService._();
+  factory LocationService() => _instance;
+  LocationService._();
+
   final ApiClient _api = ApiClient();
   StreamSubscription<Position>? _sub;
   Timer? _heartbeat;
   String? _activeTripId;
+
+  /// The trip currently being broadcast, if any.
+  String? get activeTripId => _activeTripId;
 
   /// Ask for location permission. For true background tracking the driver must
   /// grant "Allow all the time" (ACCESS_BACKGROUND_LOCATION); we escalate to it

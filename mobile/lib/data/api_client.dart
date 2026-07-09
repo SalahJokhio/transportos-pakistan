@@ -45,12 +45,16 @@ class ApiClient {
   }
 
   Future<List<dynamic>> getMyTrips() async {
-    try {
-      final res = await dio.get(ApiConstants.driverTrips);
-      return res.data as List<dynamic>;
-    } catch (_) {
-      return [];
-    }
+    // Let errors propagate so the UI can distinguish "no trips" from a failed
+    // request (expired token / no connection) instead of silently showing blank.
+    final res = await dio.get(ApiConstants.driverTrips);
+    return res.data as List<dynamic>;
+  }
+
+  /// A single trip (used to restore the real status when reopening a trip).
+  Future<Map<String, dynamic>> getTrip(String tripId) async {
+    final res = await dio.get('/trips/$tripId');
+    return res.data as Map<String, dynamic>;
   }
 
   /// Driver starts the trip → backend marks it DEPARTED + stamps actual departure.

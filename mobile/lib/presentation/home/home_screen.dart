@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/theme.dart';
@@ -16,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _user;
   List<dynamic> _trips = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -24,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
+    if (mounted) setState(() => _error = null);
     try {
       final user = await ApiClient().getMe();
       final trips = await ApiClient().getMyTrips();
@@ -33,8 +36,21 @@ class _HomeScreenState extends State<HomeScreen> {
         _trips = trips;
         _loading = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (!mounted) return;
+      // Expired/invalid session → send back to login for a fresh token.
+      if (e is DioException && e.response?.statusCode == 401) {
+        await const FlutterSecureStorage().deleteAll();
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = (e is DioException && e.response == null)
+            ? 'Cannot reach the server. Check your connection.'
+            : 'Could not load your trips. Pull to retry.';
+      });
     }
   }
 
@@ -138,7 +154,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Text('Today\'s trips',
                             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.text)),
                         const SizedBox(height: 12),
-                        if (_trips.isEmpty) _emptyState() else ..._trips.map((t) => _TripCard(trip: t)),
+                        if (_error != null)
+                          _errorState()
+                        else if (_trips.isEmpty)
+                          _emptyState()
+                        else
+                          ..._trips.map((t) => _TripCard(trip: t)),
                       ]),
                     ),
             ),
@@ -170,6 +191,33 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _errorState() {
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.all(28),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textMuted),
+          const SizedBox(height: 14),
+          Text(_error ?? 'Something went wrong',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() => _loading = true);
+              _loadData();
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(140, 44)),
+          ),
+        ],
       ),
     );
   }
