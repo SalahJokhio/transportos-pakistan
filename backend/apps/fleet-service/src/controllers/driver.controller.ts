@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Param, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TripService } from '../services/trip.service';
 import { DriverRecordService } from '../services/driver-record.service';
+import { TripReportService } from '../services/trip-report.service';
 import { TripStatus } from '@app/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +17,7 @@ export class DriverController {
   constructor(
     private readonly tripService: TripService,
     private readonly driverRecordService: DriverRecordService,
+    private readonly tripReportService: TripReportService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
 
@@ -23,6 +25,18 @@ export class DriverController {
   @ApiOperation({ summary: 'This driver\'s full record (trips, routes, km, experience, rating)' })
   profile(@Request() req) {
     return this.driverRecordService.getRecord(req.user?.sub);
+  }
+
+  @Post('trips/:tripId/reports')
+  @ApiOperation({ summary: 'Driver files an incident / refuel / expense report on a trip' })
+  createReport(@Param('tripId') tripId: string, @Body() body: any, @Request() req) {
+    return this.tripReportService.create(tripId, req.user?.sub, body);
+  }
+
+  @Get('trips/:tripId/reports')
+  @ApiOperation({ summary: 'Driver\'s reports for a trip' })
+  myReports(@Param('tripId') tripId: string, @Request() req) {
+    return this.tripReportService.listForDriver(tripId, req.user?.sub);
   }
 
   @Post('trips/:id/start')

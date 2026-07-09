@@ -11,6 +11,7 @@ import { TrackingModule } from '../../tracking-service/src/tracking.module';
 import { PaymentModule } from '../../payment-service/src/payment.module';
 import { NotificationModule } from '../../notification-service/src/notification.module';
 import { HealthController } from './health.controller';
+import { UploadController } from './upload.controller';
 
 @Module({
   imports: [
@@ -24,6 +25,6 @@ import { HealthController } from './health.controller';
     PaymentModule,
     NotificationModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, UploadController],
 })
 export class ApiGatewayModule {}

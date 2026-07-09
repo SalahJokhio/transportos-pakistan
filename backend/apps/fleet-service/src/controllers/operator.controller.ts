@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Trip } from '../entities/trip.entity';
 import { BookingService } from '../../../booking-service/src/services/booking.service';
+import { TripReportService } from '../services/trip-report.service';
 
 @ApiTags('Operator')
 @ApiBearerAuth()
@@ -21,8 +22,15 @@ export class OperatorController {
     private readonly busService: BusService,
     private readonly tripService: TripService,
     private readonly bookingService: BookingService,
+    private readonly tripReportService: TripReportService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  @Get('trips/:tripId/reports')
+  @ApiOperation({ summary: 'Owner view: driver reports (incidents/expenses) for a trip' })
+  tripReports(@Param('tripId') tripId: string, @Request() req) {
+    return this.tripReportService.listForOperator(tripId, req.user?.companyId || req.user?.sub);
+  }
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Operator dashboard: fleet + bookings + revenue + occupancy' })
