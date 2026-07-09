@@ -434,6 +434,23 @@ export class BookingService {
   }
 
   /**
+   * Confirmed revenue grouped by trip — used by fleet financial analytics to
+   * roll revenue up per bus.
+   */
+  async getRevenueByTrips(tripIds: string[]): Promise<Record<string, number>> {
+    if (!tripIds.length) return {};
+    const rows = await this.bookingRepo
+      .createQueryBuilder('b')
+      .select('b.tripId', 'tripId')
+      .addSelect('COALESCE(SUM(b.finalAmount), 0)', 'revenue')
+      .where('b.tripId IN (:...tripIds)', { tripIds })
+      .andWhere('b.status = :s', { s: BookingStatus.CONFIRMED })
+      .groupBy('b.tripId')
+      .getRawMany();
+    return Object.fromEntries(rows.map((r) => [r.tripId, Number(r.revenue)]));
+  }
+
+  /**
    * Agent earnings summary: tickets they issued (bookedById = agent), total
    * sales and the 5% commission earned on confirmed bookings.
    */

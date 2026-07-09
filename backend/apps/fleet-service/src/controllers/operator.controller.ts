@@ -11,6 +11,7 @@ import { Repository } from 'typeorm';
 import { Trip } from '../entities/trip.entity';
 import { BookingService } from '../../../booking-service/src/services/booking.service';
 import { TripReportService } from '../services/trip-report.service';
+import { FleetAnalyticsService } from '../services/fleet-analytics.service';
 
 @ApiTags('Operator')
 @ApiBearerAuth()
@@ -23,8 +24,15 @@ export class OperatorController {
     private readonly tripService: TripService,
     private readonly bookingService: BookingService,
     private readonly tripReportService: TripReportService,
+    private readonly fleetAnalyticsService: FleetAnalyticsService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  @Get('fleet-report')
+  @ApiOperation({ summary: 'Per-bus profit/loss: revenue − expenses, best/worst performer' })
+  fleetReport(@Request() req) {
+    return this.fleetAnalyticsService.getFleetReport(req.user?.companyId || req.user?.sub);
+  }
 
   @Get('trips/:tripId/reports')
   @ApiOperation({ summary: 'Owner view: driver reports (incidents/expenses) for a trip' })

@@ -13,6 +13,7 @@ import { BusService } from './services/bus.service';
 import { TripService } from './services/trip.service';
 import { DriverRecordService } from './services/driver-record.service';
 import { TripReportService } from './services/trip-report.service';
+import { FleetAnalyticsService } from './services/fleet-analytics.service';
 import { RouteController } from './controllers/route.controller';
 import { BusController } from './controllers/bus.controller';
 import { TripController } from './controllers/trip.controller';
@@ -36,6 +37,6 @@ import { BookingModule } from '../../booking-service/src/booking.module';
     DriverController,
     DriversController,
   ],
-  providers: [RouteService, BusService, TripService, DriverRecordService, TripReportService],
+  providers: [RouteService, BusService, TripService, DriverRecordService, TripReportService, FleetAnalyticsService],
 })
 export class FleetModule {}
