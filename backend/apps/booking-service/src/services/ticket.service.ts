@@ -50,6 +50,7 @@ export class TicketService {
       createdAt: booking.createdAt,
       qrCode, // data:image/png;base64,…  — render directly in <img src>
       trip: trip && {
+        driverId: trip.driverId,
         departureTime: trip.departureTime,
         estimatedArrivalTime: trip.estimatedArrivalTime,
         status: trip.status,

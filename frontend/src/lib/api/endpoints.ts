@@ -54,6 +54,9 @@ export const driverApi = {
     post('/tracking/location', data),
   // Company-side: verify a driver's portable record by CNIC
   verifyByCnic: (cnic: string) => get('/drivers/verify', { params: { cnic } }),
+  // Passenger leaves a rating/remark on a driver after a trip
+  review: (driverId: string, data: { rating: number; remark?: string; tripId?: string; byName?: string }) =>
+    post(`/drivers/${driverId}/reviews`, data),
 };
 
 export const agentApi = {
