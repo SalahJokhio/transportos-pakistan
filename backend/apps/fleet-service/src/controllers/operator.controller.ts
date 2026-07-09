@@ -34,6 +34,12 @@ export class OperatorController {
     return this.fleetAnalyticsService.getFleetReport(req.user?.companyId || req.user?.sub);
   }
 
+  @Get('reports')
+  @ApiOperation({ summary: 'Owner feed: recent driver reports across the whole fleet' })
+  reports(@Request() req) {
+    return this.tripReportService.listForCompany(req.user?.companyId || req.user?.sub);
+  }
+
   @Get('trips/:tripId/reports')
   @ApiOperation({ summary: 'Owner view: driver reports (incidents/expenses) for a trip' })
   tripReports(@Param('tripId') tripId: string, @Request() req) {

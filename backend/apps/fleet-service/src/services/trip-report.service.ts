@@ -50,6 +50,18 @@ export class TripReportService {
     return this.reportRepo.find({ where: { tripId, driverId }, order: { createdAt: 'DESC' } });
   }
 
+  /** Owner feed: recent reports across the whole company's fleet. */
+  async listForCompany(companyId: string, limit = 50) {
+    const reports = await this.reportRepo.find({
+      where: { companyId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    const totalSpent = reports.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const incidents = reports.filter((r) => r.type === 'INCIDENT').length;
+    return { count: reports.length, incidents, totalSpent, reports };
+  }
+
   /** Owner/operator view — ownership-checked against the trip's company. */
   async listForOperator(tripId: string, companyId: string) {
     const trip = await this.tripRepo.findOne({ where: { id: tripId } });

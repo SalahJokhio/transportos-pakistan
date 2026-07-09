@@ -16,4 +16,8 @@ export const operatorApi = {
   getManifest: (tripId: string) => get(`/bookings/manifest/${tripId}`),
   fleetReport: () => get('/operator/fleet-report'),
   tripReports: (tripId: string) => get(`/operator/trips/${tripId}/reports`),
+  reports: () => get('/operator/reports'),
 };
+
+// Base for uploaded photos (served outside the /api/v1 prefix)
+export const MEDIA_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1').replace('/api/v1', '');
