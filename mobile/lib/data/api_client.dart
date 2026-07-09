@@ -77,4 +77,17 @@ class ApiClient {
     final res = await dio.get('/driver/profile');
     return res.data as Map<String, dynamic>;
   }
+
+  /// Upload a photo/video; returns the served URL to attach to a report.
+  Future<String> uploadFile(String path) async {
+    final form = FormData.fromMap({'file': await MultipartFile.fromFile(path)});
+    final res = await dio.post('/uploads', data: form);
+    return (res.data as Map<String, dynamic>)['url'] as String;
+  }
+
+  /// Driver files an incident / refuel / expense report on a trip.
+  Future<Map<String, dynamic>> createReport(String tripId, Map<String, dynamic> body) async {
+    final res = await dio.post('/driver/trips/$tripId/reports', data: body);
+    return res.data as Map<String, dynamic>;
+  }
 }

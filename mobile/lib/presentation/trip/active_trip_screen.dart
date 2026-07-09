@@ -271,6 +271,15 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           ),
           const SizedBox(height: 14),
 
+          // ---- Report incident / expense ----
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.report, arguments: widget.tripId),
+            icon: const Icon(Icons.add_a_photo_outlined, color: AppColors.navy),
+            label: const Text('Report incident / expense',
+                style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 12),
+
           // ---- Emergency ----
           OutlinedButton.icon(
             onPressed: () => _showEmergencyDialog(context),

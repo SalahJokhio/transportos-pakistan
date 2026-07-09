@@ -30,6 +30,9 @@ dependencies:
   fluttertoast: ^8.2.4
   # QR code for ticket verification
   qr_flutter: ^4.1.0
+  # Camera / gallery for incident + expense report photos
+  image_picker: ^1.1.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

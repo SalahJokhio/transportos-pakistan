@@ -4,6 +4,7 @@ import '../presentation/auth/login_screen.dart';
 import '../presentation/home/home_screen.dart';
 import '../presentation/trip/active_trip_screen.dart';
 import '../presentation/trip/manifest_screen.dart';
+import '../presentation/trip/report_screen.dart';
 import '../presentation/profile/profile_screen.dart';
 
 class AppRoutes {
@@ -12,6 +13,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String activeTrip = '/trip/active';
   static const String manifest = '/trip/manifest';
+  static const String report = '/trip/report';
   static const String profile = '/profile';
 }
 
@@ -28,6 +30,8 @@ class AppRouter {
         return _slide(ActiveTripScreen(tripId: settings.arguments as String));
       case AppRoutes.manifest:
         return _slide(ManifestScreen(tripId: settings.arguments as String));
+      case AppRoutes.report:
+        return _slide(ReportScreen(tripId: settings.arguments as String));
       case AppRoutes.profile:
         return _slide(const ProfileScreen());
       default:
