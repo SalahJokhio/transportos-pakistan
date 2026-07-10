@@ -8,9 +8,15 @@ export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   @Post('initiate')
-  @ApiOperation({ summary: 'Initiate JazzCash / EasyPaisa payment' })
-  initiate(@Body() body: { bookingId: string; method: 'jazzcash' | 'easypaisa'; amount: number }) {
-    return this.paymentService.initiate(body.bookingId, body.method, body.amount);
+  @ApiOperation({ summary: 'Initiate JazzCash / EasyPaisa payment (idempotent per booking)' })
+  initiate(@Body() body: { bookingId: string; method: 'jazzcash' | 'easypaisa'; idempotencyKey?: string }) {
+    return this.paymentService.initiate(body.bookingId, body.method, body.idempotencyKey);
+  }
+
+  @Post('mock-confirm')
+  @ApiOperation({ summary: 'DEV: simulate a successful payment and confirm the booking' })
+  mockConfirm(@Body() body: { bookingId: string }) {
+    return this.paymentService.mockConfirm(body.bookingId);
   }
 
   @Post('jazzcash/callback')

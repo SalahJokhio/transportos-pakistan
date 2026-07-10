@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Trip } from '../entities/trip.entity';
@@ -45,15 +45,19 @@ export class TripService {
     const date = new Date(dto.date);
     const dayStart = new Date(date.setHours(0, 0, 0, 0));
     const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+    const passengers = Math.max(1, Number(dto.passengers) || 1);
 
-    const routeWhere: Record<string, any> = {
-      originCity: dto.originCity,
-      destinationCity: dto.destinationCity,
-      isActive: true,
-    };
-    if (dto.transportType) routeWhere.transportType = dto.transportType;
-
-    const routes = await this.routeRepo.find({ where: routeWhere });
+    // Case-insensitive city match: users type "karachi" / "KARACHI" — exact
+    // equality silently returned zero trips. ILIKE + trim keeps search forgiving.
+    const routeQb = this.routeRepo
+      .createQueryBuilder('route')
+      .where('route.isActive = true')
+      .andWhere('LOWER(TRIM(route.originCity)) = LOWER(TRIM(:origin))', { origin: dto.originCity })
+      .andWhere('LOWER(TRIM(route.destinationCity)) = LOWER(TRIM(:dest))', { dest: dto.destinationCity });
+    if (dto.transportType) {
+      routeQb.andWhere('route.transportType = :tt', { tt: dto.transportType });
+    }
+    const routes = await routeQb.getMany();
     if (!routes.length) return [];
 
     const routeIds = routes.map(r => r.id);
@@ -62,13 +66,17 @@ export class TripService {
       .where('trip.routeId IN (:...routeIds)', { routeIds })
       .andWhere('trip.departureTime BETWEEN :start AND :end', { start: dayStart, end: dayEnd })
       .andWhere('trip.status IN (:...statuses)', { statuses: [TripStatus.SCHEDULED, TripStatus.BOARDING] })
+      .orderBy('trip.departureTime', 'ASC') // earliest departure first
       .getMany();
 
-    return trips.map(trip => {
-      const available = Object.values(trip.seatAvailability).filter(s => s === 'AVAILABLE').length;
-      const route = routes.find(r => r.id === trip.routeId);
-      return { ...trip, availableSeats: available, route, transportType: route?.transportType ?? 'BUS' };
-    });
+    return trips
+      .map(trip => {
+        const available = Object.values(trip.seatAvailability).filter(s => s === 'AVAILABLE').length;
+        const route = routes.find(r => r.id === trip.routeId);
+        return { ...trip, availableSeats: available, route, transportType: route?.transportType ?? 'BUS' };
+      })
+      // Only show trips that can actually seat the whole group.
+      .filter(t => t.availableSeats >= passengers);
   }
 
   async findById(id: string): Promise<Trip> {
@@ -80,6 +88,29 @@ export class TripService {
   async updateStatus(id: string, status: TripStatus): Promise<Trip> {
     await this.tripRepo.update(id, { status });
     return this.findById(id);
+  }
+
+  /**
+   * Driver-driven trip lifecycle. Only the assigned driver can start/end their
+   * own trip; we stamp the real departure/arrival time for analytics + ETA.
+   */
+  async driverUpdateStatus(tripId: string, driverId: string, action: 'start' | 'end'): Promise<Trip> {
+    const trip = await this.tripRepo.findOne({ where: { id: tripId } });
+    if (!trip) throw new NotFoundException('Trip not found');
+    if (trip.driverId !== driverId) throw new ForbiddenException('This trip is not assigned to you');
+
+    if (action === 'start') {
+      if ([TripStatus.ARRIVED, TripStatus.CANCELLED].includes(trip.status)) {
+        throw new BadRequestException(`Cannot start a ${trip.status} trip`);
+      }
+      trip.status = TripStatus.DEPARTED;
+      trip.actualDepartureTime = new Date();
+    } else {
+      if (trip.status === TripStatus.CANCELLED) throw new BadRequestException('Trip was cancelled');
+      trip.status = TripStatus.ARRIVED;
+      trip.actualArrivalTime = new Date();
+    }
+    return this.tripRepo.save(trip);
   }
 
   async getSeatMap(tripId: string) {

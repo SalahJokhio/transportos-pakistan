@@ -20,7 +20,8 @@ export const tripApi = {
   search: (params: { originCity: string; destinationCity: string; date: string; passengers?: number; transportType?: string }) =>
     get('/trips/search', { params }),
   getById: (id: string) => get(`/trips/${id}`),
-  getSeatMap: (id: string) => get(`/trips/${id}/seats`),
+  // Lock-aware seat map: AVAILABLE / LOCKED (held by someone else) / BOOKED
+  getSeatMap: (id: string) => get(`/bookings/seat-map/${id}`),
 };
 
 export const routeApi = {
@@ -33,10 +34,33 @@ export const bookingApi = {
   create: (data: any) => post('/bookings', data),
   getMyBookings: () => get('/bookings/my-bookings'),
   getByPnr: (pnr: string) => get(`/bookings/pnr/${pnr}`),
+  getTicket: (pnr: string) => get(`/bookings/ticket/${pnr}`), // full e-ticket + QR
   cancel: (id: string, reason: string) => del(`/bookings/${id}/cancel`, { data: { reason } }),
 };
 
 export const paymentApi = {
-  initiate: (data: { bookingId: string; method: 'jazzcash' | 'easypaisa'; amount: number }) =>
+  // amount is derived server-side from the booking (can't be tampered)
+  initiate: (data: { bookingId: string; method: 'jazzcash' | 'easypaisa' }) =>
     post('/payments/initiate', data),
+  // DEV/sandbox: simulate a successful payment and confirm the booking
+  mockConfirm: (bookingId: string) => post('/payments/mock-confirm', { bookingId }),
+};
+
+export const driverApi = {
+  myTrips: () => get('/driver/trips'),
+  startTrip: (tripId: string) => post(`/driver/trips/${tripId}/start`),
+  endTrip: (tripId: string) => post(`/driver/trips/${tripId}/end`),
+  ping: (data: { tripId: string; lat: number; lng: number; speed?: number }) =>
+    post('/tracking/location', data),
+  // Company-side: verify a driver's portable record by CNIC
+  verifyByCnic: (cnic: string) => get('/drivers/verify', { params: { cnic } }),
+  // Passenger leaves a rating/remark on a driver after a trip
+  review: (driverId: string, data: { rating: number; remark?: string; tripId?: string; byName?: string }) =>
+    post(`/drivers/${driverId}/reviews`, data),
+};
+
+export const agentApi = {
+  // Walk-in booking issued on behalf of a customer (bookedById = agent)
+  book: (data: any) => post('/bookings/agent', data),
+  summary: () => get('/bookings/agent/summary'),
 };

@@ -1,9 +1,10 @@
 'use client';
+import { useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { bookingApi } from '@/lib/api/endpoints';
-import { CheckCircle, Download, MapPin, Bus, Calendar, Ticket, Share2, Navigation } from 'lucide-react';
+import { bookingApi, driverApi } from '@/lib/api/endpoints';
+import { CheckCircle, Download, MapPin, Bus, Calendar, Ticket, Share2, Navigation, Star } from 'lucide-react';
 
 const STATUS_COLOR: Record<string, string> = {
   CONFIRMED: 'text-green-600 bg-green-50',
@@ -18,8 +19,8 @@ export default function BookingConfirmationPage() {
   const justConfirmed = sp.get('confirmed') === '1';
 
   const { data: booking, isLoading } = useQuery({
-    queryKey: ['booking-pnr', pnr],
-    queryFn: () => bookingApi.getByPnr(pnr),
+    queryKey: ['ticket', pnr],
+    queryFn: () => bookingApi.getTicket(pnr),
     enabled: !!pnr,
   });
 
@@ -113,18 +114,31 @@ export default function BookingConfirmationPage() {
           </div>
         </div>
 
-        {/* Barcode placeholder */}
-        <div className="mt-6 border-t border-dashed border-slate-200 pt-4 text-center">
-          <div className="inline-flex gap-0.5">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <div
-                key={i}
-                style={{ width: 2, height: Math.random() > 0.5 ? 32 : 20 }}
-                className="bg-slate-800 rounded-sm"
-              />
-            ))}
+        {/* Route + bus details */}
+        {b.route && (
+          <div className="mt-5 border-t border-slate-100 pt-4 flex items-start gap-3 text-sm">
+            <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold">{b.route.originCity} → {b.route.destinationCity}</div>
+              {b.bus && <div className="text-xs text-slate-400">{b.bus.busType} · {b.bus.make} {b.bus.model} · {b.bus.registrationNumber}</div>}
+              {b.trip?.departureTime && (
+                <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                  <Calendar size={12} /> {new Date(b.trip.departureTime).toLocaleString('en-PK', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Scannable QR — verified at boarding */}
+        <div className="mt-6 border-t border-dashed border-slate-200 pt-4 text-center">
+          {b.qrCode ? (
+            <img src={b.qrCode} alt={`Boarding QR for ${b.pnr}`} className="mx-auto w-40 h-40" />
+          ) : (
+            <div className="text-xs text-slate-400">QR unavailable</div>
+          )}
           <div className="text-xs text-slate-400 mt-1 font-mono">{b.pnr}</div>
+          <div className="text-[11px] text-slate-400">Show this QR to the conductor at boarding</div>
         </div>
       </div>
 
@@ -148,10 +162,76 @@ export default function BookingConfirmationPage() {
         </Link>
       )}
 
+      {/* Rate the driver */}
+      {b.trip?.driverId && ['CONFIRMED', 'COMPLETED'].includes(b.status) && (
+        <RateDriver driverId={b.trip.driverId} tripId={b.tripId} />
+      )}
+
       {/* Cancellation notice */}
       <div className="mt-4 text-xs text-slate-400 text-center">
         Free cancellation up to 2 hours before departure · Refund in 3-5 business days
       </div>
+    </div>
+  );
+}
+
+function RateDriver({ driverId, tripId }: { driverId: string; tripId: string }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [remark, setRemark] = useState('');
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!rating) return;
+    setBusy(true);
+    try {
+      await driverApi.review(driverId, { rating, remark, tripId });
+      setDone(true);
+    } catch {
+      /* ignore — keep it simple */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="card mt-4 text-center py-6">
+        <CheckCircle size={28} className="text-green-500 mx-auto mb-2" />
+        <p className="font-semibold text-slate-700">Thanks for your feedback!</p>
+        <p className="text-xs text-slate-400 mt-1">Your remark is now part of the driver&apos;s record.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card mt-4">
+      <h3 className="font-bold mb-1">Rate your driver</h3>
+      <p className="text-xs text-slate-400 mb-3">Your rating follows the driver on their permanent record.</p>
+      <div className="flex justify-center gap-2 mb-3">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <button
+            key={s}
+            onMouseEnter={() => setHover(s)}
+            onMouseLeave={() => setHover(0)}
+            onClick={() => setRating(s)}
+            className="transition-transform hover:scale-110"
+          >
+            <Star size={34} className={(hover || rating) >= s ? 'text-amber-400 fill-amber-400' : 'text-slate-200'} />
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={remark}
+        onChange={(e) => setRemark(e.target.value)}
+        placeholder="Add a remark (optional) — e.g. safe driving, on time…"
+        className="input w-full text-sm mb-3"
+        rows={2}
+      />
+      <button onClick={submit} disabled={!rating || busy} className="btn-primary w-full disabled:opacity-40">
+        {busy ? 'Submitting…' : 'Submit rating'}
+      </button>
     </div>
   );
 }
