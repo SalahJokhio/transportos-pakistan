@@ -50,6 +50,9 @@ export class User {
   @Column({ default: 0 })
   loyaltyPoints: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  walletBalance: number;
+
   @Column({ nullable: true })
   companyId: string;
 

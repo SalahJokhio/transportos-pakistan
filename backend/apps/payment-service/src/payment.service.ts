@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { PaymentStatus } from '@app/common';
 import { Payment } from './entities/payment.entity';
 import { BookingService } from '../../booking-service/src/services/booking.service';
+import { WalletService } from '../../user-service/src/services/wallet.service';
 
 @Injectable()
 export class PaymentService {
@@ -13,7 +14,36 @@ export class PaymentService {
   constructor(
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
     private readonly bookingService: BookingService,
+    private readonly walletService: WalletService,
   ) {}
+
+  /**
+   * Pay for a booking from the passenger's wallet: debit the balance (throws if
+   * insufficient), record the payment, and confirm the booking. Idempotent —
+   * an already-confirmed booking is not charged again.
+   */
+  async payWithWallet(bookingId: string, userId: string) {
+    const booking = await this.bookingService.findById(bookingId);
+    if (booking.status === 'CONFIRMED') return { success: true, alreadyPaid: true };
+
+    await this.walletService.debit(userId, Number(booking.finalAmount), {
+      description: `Ticket ${booking.pnr}`,
+      bookingId,
+    });
+
+    const payment = await this.paymentRepo.save(
+      this.paymentRepo.create({
+        bookingId,
+        provider: 'wallet',
+        amount: booking.finalAmount,
+        status: PaymentStatus.COMPLETED,
+        idempotencyKey: `wallet-${bookingId}`,
+        providerRef: `WALLET${Date.now()}`,
+      }),
+    );
+    await this.bookingService.confirm(bookingId, payment.id);
+    return { success: true, paymentId: payment.id, method: 'wallet' };
+  }
 
   /**
    * Start a payment for a booking. Idempotent on `idempotencyKey` (defaults to

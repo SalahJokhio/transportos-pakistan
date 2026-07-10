@@ -16,6 +16,9 @@ import { AdminController } from './controllers/admin.controller';
 import { LoyaltyController } from './controllers/loyalty.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoyaltyTransaction } from './entities/loyalty-transaction.entity';
+import { WalletTransaction } from './entities/wallet-transaction.entity';
+import { WalletService } from './services/wallet.service';
+import { WalletController } from './controllers/wallet.controller';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 
 @Module({
@@ -31,9 +34,10 @@ import { Booking } from '../../booking-service/src/entities/booking.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, Booking]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Booking]),
   ],
-  controllers: [AuthController, UserController, AdminController, LoyaltyController],
-  providers: [AuthService, UserService, AdminService, LoyaltyService, JwtStrategy],
+  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController],
+  providers: [AuthService, UserService, AdminService, LoyaltyService, WalletService, JwtStrategy],
+  exports: [WalletService],
 })
 export class UserModule {}
