@@ -29,6 +29,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final res = await ApiClient().login(_phoneCtrl.text.trim(), _passCtrl.text);
       const storage = FlutterSecureStorage();
       await storage.write(key: StorageKeys.accessToken, value: res['accessToken'] as String);
+      if (res['refreshToken'] != null) {
+        await storage.write(key: StorageKeys.refreshToken, value: res['refreshToken'] as String);
+      }
       await storage.write(key: StorageKeys.userId, value: res['user']['id'] as String);
       await storage.write(key: StorageKeys.userRole, value: res['user']['role'] as String);
       if (!mounted) return;

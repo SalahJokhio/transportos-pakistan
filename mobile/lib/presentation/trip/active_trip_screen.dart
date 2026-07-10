@@ -334,11 +334,24 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Emergency alert sent to dispatcher')),
-              );
+              try {
+                await ApiClient().createReport(widget.tripId, {
+                  'type': 'INCIDENT',
+                  'category': 'EMERGENCY',
+                  'description': 'Emergency reported by driver during the trip',
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Emergency alert sent to dispatcher'), backgroundColor: AppColors.danger),
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send alert — try again')));
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Send alert'),

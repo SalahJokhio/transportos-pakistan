@@ -1,6 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import { operatorApi } from '@/lib/api/operator';
+import { OperatorNav } from '@/components/operator/OperatorNav';
 import { TrendingUp, TrendingDown, Wallet, Receipt, Bus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
@@ -17,6 +18,8 @@ export default function FinancePage() {
   const worst = data?.worstPerformer;
 
   return (
+    <>
+    <OperatorNav />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-1">Fleet finance</h1>
       <p className="text-slate-500 text-sm mb-6">Revenue vs expenses per bus — which buses earn, which lose money.</p>
@@ -92,5 +95,6 @@ export default function FinancePage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

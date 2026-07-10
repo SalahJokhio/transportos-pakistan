@@ -1,6 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import { operatorApi, MEDIA_BASE } from '@/lib/api/operator';
+import { OperatorNav } from '@/components/operator/OperatorNav';
 import { AlertTriangle, Fuel, Receipt, StickyNote, Wallet } from 'lucide-react';
 
 const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
@@ -21,6 +22,8 @@ export default function ReportsPage() {
   const reports: any[] = data?.reports ?? [];
 
   return (
+    <>
+    <OperatorNav />
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-1">Driver reports</h1>
       <p className="text-slate-500 text-sm mb-5">Incidents, refuels and expenses reported by your drivers on the road.</p>
@@ -71,5 +74,6 @@ export default function ReportsPage() {
         })}
       </div>
     </div>
+    </>
   );
 }

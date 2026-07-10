@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
-import { Bus, MapPin, Ticket, Star, User, LogOut } from 'lucide-react';
+import { Bus, MapPin, Ticket, Star, User, LogOut, ShieldCheck } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -29,6 +29,9 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
           <Link href="/search" className="hover:text-orange-600 flex items-center gap-1">
             <MapPin size={15} /> Search Buses
+          </Link>
+          <Link href="/verify-driver" className="hover:text-orange-600 flex items-center gap-1">
+            <ShieldCheck size={15} /> Verify Driver
           </Link>
           {isAuthenticated && (
             <>
