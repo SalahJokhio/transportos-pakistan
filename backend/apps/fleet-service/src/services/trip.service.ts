@@ -90,6 +90,15 @@ export class TripService {
     return this.findById(id);
   }
 
+  /** Assign / reassign a driver to a trip (only the trip's own company). */
+  async assignDriver(tripId: string, driverId: string, companyId: string): Promise<Trip> {
+    const trip = await this.tripRepo.findOne({ where: { id: tripId } });
+    if (!trip) throw new NotFoundException('Trip not found');
+    if (trip.companyId !== companyId) throw new ForbiddenException('This trip belongs to another operator');
+    trip.driverId = driverId;
+    return this.tripRepo.save(trip);
+  }
+
   /**
    * Driver-driven trip lifecycle. Only the assigned driver can start/end their
    * own trip; we stamp the real departure/arrival time for analytics + ETA.

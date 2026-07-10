@@ -1,10 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, FileText } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, FileText, Users } from 'lucide-react';
 
 const LINKS = [
   { href: '/dashboard/operator', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/drivers', label: 'Drivers', icon: Users },
   { href: '/dashboard/finance', label: 'Finance', icon: TrendingUp },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
 ];

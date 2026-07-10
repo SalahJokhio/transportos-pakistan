@@ -12,6 +12,7 @@ import { Trip } from '../entities/trip.entity';
 import { BookingService } from '../../../booking-service/src/services/booking.service';
 import { TripReportService } from '../services/trip-report.service';
 import { FleetAnalyticsService } from '../services/fleet-analytics.service';
+import { DriverRecordService } from '../services/driver-record.service';
 
 @ApiTags('Operator')
 @ApiBearerAuth()
@@ -25,8 +26,21 @@ export class OperatorController {
     private readonly bookingService: BookingService,
     private readonly tripReportService: TripReportService,
     private readonly fleetAnalyticsService: FleetAnalyticsService,
+    private readonly driverRecordService: DriverRecordService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  @Get('drivers')
+  @ApiOperation({ summary: 'List drivers (with rating + trips) for assignment' })
+  drivers() {
+    return this.driverRecordService.listDrivers();
+  }
+
+  @Patch('trips/:tripId/driver')
+  @ApiOperation({ summary: 'Assign / reassign a driver to a trip' })
+  assignDriver(@Param('tripId') tripId: string, @Body() body: { driverId: string }, @Request() req) {
+    return this.tripService.assignDriver(tripId, body.driverId, req.user?.companyId || req.user?.sub);
+  }
 
   @Get('fleet-report')
   @ApiOperation({ summary: 'Per-bus profit/loss: revenue − expenses, best/worst performer' })
