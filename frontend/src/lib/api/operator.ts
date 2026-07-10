@@ -20,6 +20,14 @@ export const operatorApi = {
   drivers: () => get('/operator/drivers'),
   assignDriver: (tripId: string, driverId: string) =>
     api.patch(`/operator/trips/${tripId}/driver`, { driverId }),
+
+  // Staff / HR
+  employeeStats: () => get('/operator/employees/stats'),
+  employees: (params?: { type?: string; status?: string; search?: string }) =>
+    get('/operator/employees', params),
+  employee: (id: string) => get(`/operator/employees/${id}`),
+  createEmployee: (data: any) => post('/operator/employees', data),
+  updateEmployee: (id: string, patch: any) => api.patch(`/operator/employees/${id}`, patch),
 };
 
 // Base for uploaded photos (served outside the /api/v1 prefix)

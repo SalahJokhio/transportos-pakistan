@@ -107,3 +107,27 @@ export class SearchTripsDto {
   @IsOptional()
   transportType?: string;
 }
+
+export class CreateEmployeeDto {
+  @ApiProperty({ enum: ['DRIVER','CONDUCTOR','MECHANIC','TECHNICIAN','BOOKING_AGENT','TERMINAL_MANAGER','CLEANER','SECURITY','ACCOUNTANT','DISPATCHER'] })
+  @IsString()
+  employeeType: string;
+
+  @ApiProperty({ example: 'Asif' })
+  @IsString()
+  firstName: string;
+
+  @ApiPropertyOptional() @IsString() @IsOptional() lastName?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() cnic?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() phone?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() address?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() nextOfKin?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() depot?: string;
+  @ApiPropertyOptional() @IsDateString() @IsOptional() joinDate?: string;
+  @ApiPropertyOptional() @Type(() => Number) @IsNumber() @IsOptional() salary?: number;
+  @ApiPropertyOptional() @IsString() @IsOptional() status?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() photoUrl?: string;
+  @ApiPropertyOptional() @IsObject() @IsOptional() documents?: any;
+  @ApiPropertyOptional() @IsString() @IsOptional() userId?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
+}

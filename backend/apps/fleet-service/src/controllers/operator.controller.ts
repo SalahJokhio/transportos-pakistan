@@ -3,7 +3,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RouteService } from '../services/route.service';
 import { BusService } from '../services/bus.service';
 import { TripService } from '../services/trip.service';
-import { CreateRouteDto, CreateBusDto, CreateTripDto } from '../dto/fleet.dto';
+import { CreateRouteDto, CreateBusDto, CreateTripDto, CreateEmployeeDto } from '../dto/fleet.dto';
+import { EmployeeService } from '../services/employee.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TripStatus } from '@app/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,8 +28,45 @@ export class OperatorController {
     private readonly tripReportService: TripReportService,
     private readonly fleetAnalyticsService: FleetAnalyticsService,
     private readonly driverRecordService: DriverRecordService,
+    private readonly employeeService: EmployeeService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  // ── Staff / HR ──────────────────────────────────────────────
+  @Get('employees/stats')
+  @ApiOperation({ summary: 'Staff headcount, on-duty/on-leave, monthly payroll, by-type' })
+  employeeStats(@Request() req) {
+    return this.employeeService.stats(req.user?.companyId || req.user?.sub);
+  }
+
+  @Get('employees')
+  @ApiOperation({ summary: 'List company employees (filter by type/status/search)' })
+  employees(
+    @Request() req,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.employeeService.list(req.user?.companyId || req.user?.sub, { type, status, search });
+  }
+
+  @Post('employees')
+  @ApiOperation({ summary: 'Add an employee' })
+  createEmployee(@Body() dto: CreateEmployeeDto, @Request() req) {
+    return this.employeeService.create(dto as any, req.user?.companyId || req.user?.sub);
+  }
+
+  @Get('employees/:id')
+  @ApiOperation({ summary: 'Full employee record' })
+  employee(@Param('id') id: string, @Request() req) {
+    return this.employeeService.findOne(id, req.user?.companyId || req.user?.sub);
+  }
+
+  @Patch('employees/:id')
+  @ApiOperation({ summary: 'Update an employee' })
+  updateEmployee(@Param('id') id: string, @Body() patch: Partial<CreateEmployeeDto>, @Request() req) {
+    return this.employeeService.update(id, req.user?.companyId || req.user?.sub, patch as any);
+  }
 
   @Get('drivers')
   @ApiOperation({ summary: 'List drivers (with rating + trips) for assignment' })
