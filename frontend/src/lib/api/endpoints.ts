@@ -44,6 +44,14 @@ export const paymentApi = {
     post('/payments/initiate', data),
   // DEV/sandbox: simulate a successful payment and confirm the booking
   mockConfirm: (bookingId: string) => post('/payments/mock-confirm', { bookingId }),
+  // Pay for a booking from the wallet balance
+  payWithWallet: (bookingId: string) => post('/payments/wallet', { bookingId }),
+};
+
+export const walletApi = {
+  get: () => get('/wallet'),
+  topup: (amount: number) => post('/wallet/topup', { amount }),
+  redeemPoints: (points: number) => post('/wallet/redeem-points', { points }),
 };
 
 export const driverApi = {

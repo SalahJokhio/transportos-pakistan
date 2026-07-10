@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
 
-type PaymentMethod = 'jazzcash' | 'easypaisa';
+type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet';
 
 export default function CheckoutPage() {
   const sp = useSearchParams();
@@ -54,16 +54,16 @@ export default function CheckoutPage() {
         passengerDetails: passengers,
       });
 
-      // 2. Record the payment intent (chosen provider). Amount is taken from the
-      //    booking server-side — we never send it.
-      await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
+      if (paymentMethod === 'wallet') {
+        // 2a. Pay straight from the wallet balance (debits + confirms).
+        await paymentApi.payWithWallet(booking.id);
+      } else {
+        // 2b. Record the gateway intent, then settle (mock-confirm in dev).
+        await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
+        await paymentApi.mockConfirm(booking.id);
+      }
 
-      // 3. Settle it. No real JazzCash/EasyPaisa creds in dev, so mock-confirm
-      //    marks the payment COMPLETED and confirms the booking (flipping seats
-      //    to CONFIRMED via the DB unique constraint).
-      await paymentApi.mockConfirm(booking.id);
-
-      // 4. Done — show the e-ticket.
+      // 3. Done — show the e-ticket.
       router.push(`/booking/${booking.pnr}?confirmed=1`);
     } catch (err: any) {
       setError(err.message || 'Booking failed. Please try again.');
@@ -141,8 +141,9 @@ export default function CheckoutPage() {
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
               <CreditCard size={18} className="text-orange-600" /> Payment Method
             </h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {([
+                { id: 'wallet', label: 'Wallet', color: 'text-slate-800', bg: 'bg-slate-100 border-slate-300' },
                 { id: 'jazzcash', label: 'JazzCash', color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
                 { id: 'easypaisa', label: 'EasyPaisa', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
               ] as const).map((m) => (

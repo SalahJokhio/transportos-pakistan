@@ -151,6 +151,35 @@ export class AdminService {
     };
   }
 
+  /** Simple fraud heuristic: users with several cancelled bookings. */
+  async getFraudSignals() {
+    const rows: Array<{ passengerId: string; cancels: string }> = await this.bookingRepo
+      .createQueryBuilder('b')
+      .select('b.passengerId', 'passengerId')
+      .addSelect('COUNT(*)', 'cancels')
+      .where('b.status = :s', { s: BookingStatus.CANCELLED })
+      .groupBy('b.passengerId')
+      .having('COUNT(*) >= :n', { n: 2 })
+      .orderBy('cancels', 'DESC')
+      .getRawMany();
+
+    const ids = rows.map((r) => r.passengerId).filter(Boolean);
+    const users = ids.length ? await this.userRepo.findByIds(ids) : [];
+    return {
+      flagged: rows.length,
+      signals: rows.map((r) => {
+        const u = users.find((x) => x.id === r.passengerId);
+        return {
+          userId: r.passengerId,
+          name: u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : 'Unknown',
+          phone: u?.phone ?? null,
+          cancellations: Number(r.cancels),
+          reason: 'High cancellation rate',
+        };
+      }),
+    };
+  }
+
   async getOperators() {
     const operators = await this.userRepo.find({
       where: { role: UserRole.COMPANY_ADMIN },

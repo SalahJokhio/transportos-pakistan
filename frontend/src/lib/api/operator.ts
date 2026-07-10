@@ -17,6 +17,9 @@ export const operatorApi = {
   fleetReport: () => get('/operator/fleet-report'),
   tripReports: (tripId: string) => get(`/operator/trips/${tripId}/reports`),
   reports: () => get('/operator/reports'),
+  drivers: () => get('/operator/drivers'),
+  assignDriver: (tripId: string, driverId: string) =>
+    api.patch(`/operator/trips/${tripId}/driver`, { driverId }),
 };
 
 // Base for uploaded photos (served outside the /api/v1 prefix)

@@ -67,6 +67,34 @@ export class DriverRecordService {
     };
   }
 
+  /** Lightweight list of all drivers (for assignment) with rating + trip count. */
+  async listDrivers() {
+    const drivers = await this.userRepo.find({
+      where: { role: 'DRIVER' as any },
+      order: { firstName: 'ASC' },
+    });
+    return Promise.all(
+      drivers.map(async (d) => {
+        const [tripCount, reviews] = await Promise.all([
+          this.tripRepo.count({ where: { driverId: d.id, status: TripStatus.ARRIVED } }),
+          this.reviewRepo.find({ where: { driverId: d.id } }),
+        ]);
+        const avg = reviews.length
+          ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+          : null;
+        return {
+          id: d.id,
+          name: `${d.firstName ?? ''} ${d.lastName ?? ''}`.trim() || 'Driver',
+          phone: d.phone,
+          cnic: d.cnic ?? null,
+          completedTrips: tripCount,
+          rating: avg,
+          reviews: reviews.length,
+        };
+      }),
+    );
+  }
+
   /** Company-side verification: look a driver up by CNIC and return their record. */
   async verifyByCnic(cnic: string) {
     const user = await this.userRepo.findOne({ where: { cnic } });

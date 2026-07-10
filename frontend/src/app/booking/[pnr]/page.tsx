@@ -4,7 +4,8 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { bookingApi, driverApi } from '@/lib/api/endpoints';
-import { CheckCircle, Download, MapPin, Bus, Calendar, Ticket, Share2, Navigation, Star } from 'lucide-react';
+import { disputesApi } from '@/lib/api/admin';
+import { CheckCircle, Download, MapPin, Bus, Calendar, Ticket, Share2, Navigation, Star, AlertTriangle } from 'lucide-react';
 
 const STATUS_COLOR: Record<string, string> = {
   CONFIRMED: 'text-green-600 bg-green-50',
@@ -167,6 +168,9 @@ export default function BookingConfirmationPage() {
         <RateDriver driverId={b.trip.driverId} tripId={b.tripId} />
       )}
 
+      {/* Report an issue / request refund */}
+      <RaiseDispute pnr={b.pnr} bookingId={b.id} />
+
       {/* Cancellation notice */}
       <div className="mt-4 text-xs text-slate-400 text-center">
         Free cancellation up to 2 hours before departure · Refund in 3-5 business days
@@ -232,6 +236,95 @@ function RateDriver({ driverId, tripId }: { driverId: string; tripId: string }) 
       <button onClick={submit} disabled={!rating || busy} className="btn-primary w-full disabled:opacity-40">
         {busy ? 'Submitting…' : 'Submit rating'}
       </button>
+    </div>
+  );
+}
+
+function RaiseDispute({ pnr, bookingId }: { pnr: string; bookingId?: string }) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState('COMPLAINT');
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!subject.trim()) return;
+    setBusy(true);
+    try {
+      await disputesApi.raise({ type, subject, description, pnr, bookingId });
+      setDone(true);
+    } catch {
+      /* keep simple */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="card mt-4 text-center py-6">
+        <CheckCircle size={28} className="text-green-500 mx-auto mb-2" />
+        <p className="font-semibold text-slate-700">Your request has been submitted</p>
+        <p className="text-xs text-slate-400 mt-1">Our team will review it and get back to you.</p>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-3 w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl py-3 text-sm font-medium transition-colors"
+      >
+        <AlertTriangle size={15} /> Report an issue / Request refund
+      </button>
+    );
+  }
+
+  return (
+    <div className="card mt-4">
+      <h3 className="font-bold mb-3 flex items-center gap-2">
+        <AlertTriangle size={16} className="text-amber-500" /> Report an issue
+      </h3>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {[
+          { v: 'COMPLAINT', l: 'Complaint' },
+          { v: 'REFUND_REQUEST', l: 'Refund' },
+          { v: 'FRAUD', l: 'Fraud' },
+        ].map((o) => (
+          <button
+            key={o.v}
+            onClick={() => setType(o.v)}
+            className={`text-xs font-medium py-2 rounded-lg border transition-colors ${
+              type === o.v ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            {o.l}
+          </button>
+        ))}
+      </div>
+      <input
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        placeholder="Subject — e.g. Bus was 2 hours late"
+        className="input w-full text-sm mb-2"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Describe what happened (optional)"
+        className="input w-full text-sm mb-3"
+        rows={3}
+      />
+      <div className="flex gap-2">
+        <button onClick={() => setOpen(false)} className="flex-1 border border-slate-200 text-slate-500 rounded-xl py-2.5 text-sm hover:bg-slate-50">
+          Cancel
+        </button>
+        <button onClick={submit} disabled={!subject.trim() || busy} className="btn-primary flex-1 disabled:opacity-40">
+          {busy ? 'Submitting…' : 'Submit'}
+        </button>
+      </div>
     </div>
   );
 }
