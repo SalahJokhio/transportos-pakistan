@@ -6,9 +6,10 @@ import { adminApi } from '@/lib/api/admin';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
+  ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'users' | 'operators' | 'revenue';
+type Tab = 'overview' | 'users' | 'operators' | 'revenue' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -87,6 +88,24 @@ export default function AdminDashboardPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-operators'] }),
   });
 
+  const { data: disputesRes, isLoading: dispLoading } = useQuery({
+    queryKey: ['admin-disputes'],
+    queryFn: () => adminApi.getDisputes(),
+    enabled: activeTab === 'disputes',
+  });
+
+  const { data: fraudRes, isLoading: fraudLoading } = useQuery({
+    queryKey: ['admin-fraud'],
+    queryFn: adminApi.getFraudSignals,
+    enabled: activeTab === 'disputes',
+  });
+
+  const resolveDisputeMut = useMutation({
+    mutationFn: ({ id, status, resolution }: { id: string; status: string; resolution?: string }) =>
+      adminApi.resolveDispute(id, status, resolution),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-disputes'] }),
+  });
+
   const s = stats?.users;
 
   return (
@@ -106,7 +125,7 @@ export default function AdminDashboardPage() {
         {/* Tabs */}
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1 border-t">
-            {(['overview', 'users', 'operators', 'revenue'] as Tab[]).map((tab) => (
+            {(['overview', 'users', 'operators', 'revenue', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -468,6 +487,117 @@ export default function AdminDashboardPage() {
                           Approve
                         </button>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── DISPUTES / FRAUD TAB ── */}
+        {activeTab === 'disputes' && (
+          <div className="space-y-6">
+            {/* Fraud signals */}
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-red-500" />
+                <h2 className="font-semibold text-gray-800">Fraud Signals</h2>
+                <span className="text-xs text-gray-400 ml-1">
+                  {fraudLoading ? '…' : `${fraudRes?.flagged ?? 0} flagged`}
+                </span>
+              </div>
+              {fraudLoading ? (
+                <div className="p-6 space-y-3">{[1, 2].map((i) => <div key={i} className="h-12 bg-gray-50 rounded-lg animate-pulse" />)}</div>
+              ) : (fraudRes?.signals?.length ?? 0) === 0 ? (
+                <div className="py-10 text-center text-gray-400 text-sm">
+                  <ShieldCheck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  No suspicious activity detected
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {fraudRes?.signals?.map((sig: any) => (
+                    <div key={sig.userId} className="flex items-center gap-3 px-5 py-3">
+                      <Flag className="h-4 w-4 text-red-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-800 text-sm">{sig.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">{sig.phone ?? '—'}</div>
+                      </div>
+                      <span className="text-xs text-red-600 font-medium">{sig.cancellations} cancellations</span>
+                      <span className="text-xs text-gray-400 hidden sm:inline">· {sig.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Disputes queue */}
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b flex items-center justify-between">
+                <h2 className="font-semibold text-gray-800">Disputes & Refund Requests</h2>
+                <span className="text-sm text-gray-500">
+                  {dispLoading ? '…' : `${disputesRes?.open ?? 0} open · ${disputesRes?.total ?? 0} total`}
+                </span>
+              </div>
+              {dispLoading ? (
+                <div className="p-6 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-16 bg-gray-50 rounded-lg animate-pulse" />)}</div>
+              ) : (disputesRes?.disputes?.length ?? 0) === 0 ? (
+                <div className="py-16 text-center text-gray-400">
+                  <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p>No disputes — all clear</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {disputesRes?.disputes?.map((d: any) => (
+                    <div key={d.id} className="px-5 py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              d.type === 'FRAUD' ? 'bg-red-100 text-red-700' :
+                              d.type === 'REFUND_REQUEST' ? 'bg-amber-100 text-amber-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>{d.type?.replace(/_/g, ' ')}</span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              d.status === 'OPEN' ? 'bg-yellow-100 text-yellow-700' :
+                              d.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
+                              'bg-gray-100 text-gray-500'
+                            }`}>{d.status}</span>
+                            {d.pnr && <span className="text-xs font-mono text-orange-600">{d.pnr}</span>}
+                          </div>
+                          <div className="font-medium text-gray-800 mt-1.5">{d.subject}</div>
+                          {d.description && <div className="text-sm text-gray-500 mt-0.5">{d.description}</div>}
+                          <div className="text-xs text-gray-400 mt-1">
+                            {d.userName || 'User'} · {new Date(d.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                          {d.resolution && (
+                            <div className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1.5 mt-2">
+                              ✔ {d.resolution}
+                            </div>
+                          )}
+                        </div>
+                        {d.status === 'OPEN' && (
+                          <div className="flex flex-col gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                const res = window.prompt('Resolution note (e.g. "Rs 500 refunded to wallet"):', '');
+                                if (res !== null) resolveDisputeMut.mutate({ id: d.id, status: 'RESOLVED', resolution: res || 'Resolved' });
+                              }}
+                              disabled={resolveDisputeMut.isPending}
+                              className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 flex items-center gap-1"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" /> Resolve
+                            </button>
+                            <button
+                              onClick={() => resolveDisputeMut.mutate({ id: d.id, status: 'REJECTED', resolution: 'Rejected' })}
+                              disabled={resolveDisputeMut.isPending}
+                              className="text-xs border border-gray-300 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

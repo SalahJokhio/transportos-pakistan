@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
+import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
@@ -12,7 +13,28 @@ import { UserRole } from '@app/common';
 @Roles(UserRole.SUPER_ADMIN)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly disputeService: DisputeService,
+  ) {}
+
+  @Get('disputes')
+  @ApiOperation({ summary: 'Disputes / refund-request / fraud queue' })
+  disputes(@Query('status') status?: string) {
+    return this.disputeService.listAll(status);
+  }
+
+  @Patch('disputes/:id/resolve')
+  @ApiOperation({ summary: 'Resolve or reject a dispute' })
+  resolveDispute(@Param('id') id: string, @Body() body: { status: string; resolution?: string }) {
+    return this.disputeService.resolve(id, body.status, body.resolution);
+  }
+
+  @Get('fraud-signals')
+  @ApiOperation({ summary: 'Users with suspicious activity (many cancellations)' })
+  fraudSignals() {
+    return this.adminService.getFraudSignals();
+  }
 
   @Get('stats')
   @ApiOperation({ summary: 'Platform-wide user stats' })
