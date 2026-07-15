@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev -p 4000",
     "build": "next build",
-    "start": "next start -p 4000",
+    "start": "next start -p ${PORT:-4000}",
     "lint": "next lint"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
