@@ -31,15 +31,19 @@ and is wired to environment variables.
    is best from Singapore/Mumbai regions.
 2. Copy the connection string into the API env as `DATABASE_URL` (or the discrete
    `DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD/DB_NAME` the app already reads).
-3. **Turn off `synchronize`.** In the demo TypeORM auto-creates tables
-   (`synchronize: true`). In production set `TYPEORM_SYNCHRONIZE=false` and use
-   migrations so a schema change can never drop a column of live bookings.
-   - Generate the first migration from the current entities:
+3. **Migrations are already the source of truth.** `synchronize` now defaults to
+   **false** (see `libs/database/src/database.module.ts`), so production never
+   silently alters/drops a column on live bookings. A baseline migration for the
+   full schema already exists at `libs/database/src/migrations/`. Apply it on the
+   prod DB before first boot:
      ```bash
      cd backend
-     npx typeorm migration:generate ./migrations/Init -d ./ormconfig.ts
-     npx typeorm migration:run -d ./ormconfig.ts
+     npm run migration:run          # applies pending migrations
+     # to add a migration later, after changing entities:
+     npm run migration:generate -- libs/database/src/migrations/<Name>
      ```
+   - Leave `DATABASE_SYNCHRONIZE` unset in production (defaults to false). Only set
+     `DATABASE_SYNCHRONIZE=true` for fast local dev.
    - **Do not skip the partial unique index** that guarantees one confirmed seat
      per trip — verify it exists after migrating:
      ```sql
@@ -201,7 +205,7 @@ Keep `SMS_DRIVER=log` in staging so you don't spend credits on test bookings.
 
 ## 7. Go-live checklist
 
-- [ ] `TYPEORM_SYNCHRONIZE=false` and migrations applied on prod DB.
+- [ ] `DATABASE_SYNCHRONIZE` unset (defaults false) and `npm run migration:run` applied on prod DB.
 - [ ] Partial unique index `uq_trip_seat_confirmed` confirmed present.
 - [ ] `JWT_SECRET` is a real random value, not the default.
 - [ ] JazzCash + EasyPaisa passed the sandbox + double-callback tests.

@@ -16,7 +16,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         password: configService.get<string>('DATABASE_PASSWORD', 'postgres'),
         database: configService.get<string>('DATABASE_NAME', 'transport_os'),
         autoLoadEntities: true,
-        synchronize: configService.get('DATABASE_SYNCHRONIZE', 'true') === 'true',
+        // Migrations are the source of truth for the schema (see
+        // libs/database/src/migrations + `npm run migration:run`). synchronize
+        // defaults OFF so production never silently alters/drops columns on a
+        // schema drift; set DATABASE_SYNCHRONIZE=true locally for fast dev.
+        synchronize: configService.get('DATABASE_SYNCHRONIZE', 'false') === 'true',
         logging: false,
         ssl: false,
         extra: {
