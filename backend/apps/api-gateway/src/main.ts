@@ -35,8 +35,10 @@ async function bootstrap() {
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
 
-  const port = process.env.API_GATEWAY_PORT || 3000;
-  await app.listen(port);
+  // Railway/Render/Heroku inject PORT; fall back to the service-specific var,
+  // then the local default. Bind 0.0.0.0 so the platform can reach the app.
+  const port = process.env.PORT || process.env.API_GATEWAY_PORT || 3000;
+  await app.listen(port, '0.0.0.0');
   console.log(`\n🚌 TransportOS API Gateway running at http://localhost:${port}`);
   console.log(`📖 Swagger docs: http://localhost:${port}/docs\n`);
 }
