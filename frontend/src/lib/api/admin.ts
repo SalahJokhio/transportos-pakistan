@@ -30,6 +30,21 @@ export const adminApi = {
   resolveDispute: (id: string, status: string, resolution?: string) =>
     api.patch(`${BASE}/disputes/${id}/resolve`, { status, resolution }).then((r) => r.data),
   getFraudSignals: () => api.get(`${BASE}/fraud-signals`).then((r) => r.data),
+
+  // Settlements (operator payouts)
+  getSettlementSummary: () => api.get(`${BASE}/settlements/summary`).then((r) => r.data),
+  listSettlements: (status?: string) =>
+    api.get(`${BASE}/settlements`, { params: status ? { status } : {} }).then((r) => r.data),
+  generateSettlement: (companyId: string) =>
+    api.post(`${BASE}/settlements/generate`, { companyId }).then((r) => r.data),
+  paySettlement: (id: string, reference?: string) =>
+    api.post(`${BASE}/settlements/${id}/pay`, { reference }).then((r) => r.data),
+
+  // Payments & refunds
+  listPayments: (limit?: number) =>
+    api.get(`${BASE}/payments`, { params: limit ? { limit } : {} }).then((r) => r.data),
+  refundPayment: (id: string, amount?: number, reason?: string) =>
+    api.post(`${BASE}/payments/${id}/refund`, { amount, reason }).then((r) => r.data),
 };
 
 export const disputesApi = {

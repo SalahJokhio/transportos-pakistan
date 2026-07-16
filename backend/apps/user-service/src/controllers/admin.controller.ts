@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
+import { SettlementService } from '../services/settlement.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -15,8 +16,49 @@ import { UserRole } from '@app/common';
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly settlementService: SettlementService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Settlements (operator payouts) -----------------------------------
+
+  @Get('settlements/summary')
+  @ApiOperation({ summary: 'Per-operator payable: gross → commission → net → outstanding' })
+  settlementSummary() {
+    return this.settlementService.summary();
+  }
+
+  @Get('settlements')
+  @ApiOperation({ summary: 'List generated settlements (payout records)' })
+  settlements(@Query('status') status?: string) {
+    return this.settlementService.list(status);
+  }
+
+  @Post('settlements/generate')
+  @ApiOperation({ summary: 'Snapshot an operator’s outstanding amount as a PENDING settlement' })
+  generateSettlement(@Body() body: { companyId: string }) {
+    return this.settlementService.generate(body.companyId);
+  }
+
+  @Post('settlements/:id/pay')
+  @ApiOperation({ summary: 'Mark a settlement as paid out' })
+  paySettlement(@Param('id') id: string, @Body() body: { reference?: string }) {
+    return this.settlementService.markPaid(id, body?.reference);
+  }
+
+  // ---- Payments & refunds -----------------------------------------------
+
+  @Get('payments')
+  @ApiOperation({ summary: 'Recent payments (with PNR) for the refunds console' })
+  payments(@Query('limit') limit?: string) {
+    return this.adminService.listPayments(limit ? Number(limit) : 50);
+  }
+
+  @Post('payments/:id/refund')
+  @ApiOperation({ summary: 'Refund a payment (full or partial) to the passenger wallet' })
+  refundPayment(@Param('id') id: string, @Body() body: { amount?: number; reason?: string }) {
+    return this.adminService.refundPayment(id, body?.amount, body?.reason);
+  }
 
   @Get('disputes')
   @ApiOperation({ summary: 'Disputes / refund-request / fraud queue' })
