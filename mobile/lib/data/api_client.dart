@@ -58,6 +58,55 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
+  // ---- Passenger booking flow -------------------------------------------
+
+  /// Search trips between two cities on a date (yyyy-MM-dd).
+  Future<List<dynamic>> searchTrips(String origin, String destination, String date) async {
+    final res = await dio.get(ApiConstants.tripSearch, queryParameters: {
+      'originCity': origin,
+      'destinationCity': destination,
+      'date': date,
+    });
+    return res.data as List<dynamic>;
+  }
+
+  /// Seat map for a trip: { seatAvailability: { "01": "AVAILABLE"|"BOOKED"|... }, ... }.
+  Future<Map<String, dynamic>> getSeatMap(String tripId) async {
+    final res = await dio.get(ApiConstants.tripSeats(tripId));
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Hold seats for a few minutes so no one else can grab them mid-checkout.
+  Future<Map<String, dynamic>> lockSeats(String tripId, List<String> seats) async {
+    final res = await dio.post(ApiConstants.lockSeats, data: {'tripId': tripId, 'seatNumbers': seats});
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Create a PENDING_PAYMENT booking (seats must be locked first).
+  Future<Map<String, dynamic>> createBooking(
+      String tripId, List<String> seats, List<Map<String, dynamic>> passengers) async {
+    final res = await dio.post(ApiConstants.bookings,
+        data: {'tripId': tripId, 'seatNumbers': seats, 'passengerDetails': passengers});
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Pay from the wallet (debits + confirms the booking).
+  Future<Map<String, dynamic>> payWithWallet(String bookingId) async {
+    final res = await dio.post(ApiConstants.payWallet, data: {'bookingId': bookingId});
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Sandbox: simulate a successful gateway payment and confirm the booking.
+  Future<Map<String, dynamic>> mockConfirm(String bookingId) async {
+    final res = await dio.post(ApiConstants.payMockConfirm, data: {'bookingId': bookingId});
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> getMyBookings() async {
+    final res = await dio.get(ApiConstants.myBookings);
+    return res.data as List<dynamic>;
+  }
+
   Future<void> sendLocation(String tripId, double lat, double lng, double speed) async {
     await dio.post(ApiConstants.updateLocation, data: {
       'tripId': tripId,

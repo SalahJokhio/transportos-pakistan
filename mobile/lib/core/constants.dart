@@ -14,6 +14,17 @@ class ApiConstants {
   static const String driverTrips = '/driver/trips';
   static const String updateLocation = '/tracking/location';
 
+  // Passenger booking flow
+  static const String tripSearch = '/trips/search';
+  static const String lockSeats = '/bookings/lock-seats';
+  static const String bookings = '/bookings';
+  static const String myBookings = '/bookings/my-bookings';
+  static const String payWallet = '/payments/wallet';
+  static const String payInitiate = '/payments/initiate';
+  static const String payMockConfirm = '/payments/mock-confirm';
+  static String tripSeats(String id) => '/trips/$id/seats';
+  static String confirmBooking(String id) => '/bookings/$id/confirm';
+
   // Driver trip lifecycle (POST). :id is the trip id.
   static String startTrip(String id) => '/driver/trips/$id/start';
   static String endTrip(String id) => '/driver/trips/$id/end';

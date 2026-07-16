@@ -6,15 +6,19 @@ import '../presentation/trip/active_trip_screen.dart';
 import '../presentation/trip/manifest_screen.dart';
 import '../presentation/trip/report_screen.dart';
 import '../presentation/profile/profile_screen.dart';
+import '../presentation/passenger/passenger_home_screen.dart';
+import '../presentation/passenger/my_bookings_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
-  static const String home = '/home';
+  static const String home = '/home'; // driver home
   static const String activeTrip = '/trip/active';
   static const String manifest = '/trip/manifest';
   static const String report = '/trip/report';
   static const String profile = '/profile';
+  static const String passengerHome = '/passenger';
+  static const String myBookings = '/passenger/bookings';
 }
 
 class AppRouter {
@@ -26,6 +30,10 @@ class AppRouter {
         return _fade(const LoginScreen());
       case AppRoutes.home:
         return _fade(const HomeScreen());
+      case AppRoutes.passengerHome:
+        return _fade(const PassengerHomeScreen());
+      case AppRoutes.myBookings:
+        return _slide(const MyBookingsScreen());
       case AppRoutes.activeTrip:
         return _slide(ActiveTripScreen(tripId: settings.arguments as String));
       case AppRoutes.manifest:

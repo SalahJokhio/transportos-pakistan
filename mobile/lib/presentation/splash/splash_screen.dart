@@ -32,7 +32,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: StorageKeys.accessToken);
-    Navigator.pushReplacementNamed(context, token != null ? AppRoutes.home : AppRoutes.login);
+    if (token == null) {
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      return;
+    }
+    final role = await storage.read(key: StorageKeys.userRole);
+    Navigator.pushReplacementNamed(context, role == 'DRIVER' ? AppRoutes.home : AppRoutes.passengerHome);
   }
 
   @override
@@ -71,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text('DRIVER',
+                  child: const Text('PAKISTAN',
                       style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 3)),
                 ),
                 const SizedBox(height: 52),
