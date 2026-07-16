@@ -39,13 +39,18 @@ export const bookingApi = {
 };
 
 export const paymentApi = {
-  // amount is derived server-side from the booking (can't be tampered)
+  // amount is derived server-side from the booking (can't be tampered).
+  // Returns { live, mode, postUrl, fields, ... }: live=true means redirect to the
+  // real gateway; live=false means use mockConfirm (sandbox).
   initiate: (data: { bookingId: string; method: 'jazzcash' | 'easypaisa' }) =>
     post('/payments/initiate', data),
   // DEV/sandbox: simulate a successful payment and confirm the booking
   mockConfirm: (bookingId: string) => post('/payments/mock-confirm', { bookingId }),
   // Pay for a booking from the wallet balance
   payWithWallet: (bookingId: string) => post('/payments/wallet', { bookingId }),
+  status: (paymentId: string) => get(`/payments/${paymentId}/status`),
+  refund: (paymentId: string, data: { amount?: number; reason?: string } = {}) =>
+    post(`/payments/${paymentId}/refund`, data),
 };
 
 export const walletApi = {

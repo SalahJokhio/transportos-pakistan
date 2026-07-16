@@ -60,6 +60,15 @@ export class WalletService {
     });
   }
 
+  /** Credit money back to the wallet (e.g. a refund on cancellation). */
+  async credit(userId: string, amount: number, opts: { description?: string; bookingId?: string } = {}) {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) throw new BadRequestException('Amount must be positive');
+    return this.dataSource.transaction((em) =>
+      this.applyDelta(em, userId, amt, 'REFUND', opts.description ?? 'Refund', opts.bookingId),
+    );
+  }
+
   private async move(userId: string, delta: number, type: string, description: string) {
     return this.dataSource.transaction((em) => this.applyDelta(em, userId, delta, type, description));
   }

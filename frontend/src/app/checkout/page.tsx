@@ -6,6 +6,7 @@ import { bookingApi, paymentApi, tripApi } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
+import { redirectToGateway } from '@/lib/payment/redirectToGateway';
 
 type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet';
 
@@ -58,8 +59,15 @@ export default function CheckoutPage() {
         // 2a. Pay straight from the wallet balance (debits + confirms).
         await paymentApi.payWithWallet(booking.id);
       } else {
-        // 2b. Record the gateway intent, then settle (mock-confirm in dev).
-        await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
+        // 2b. Start the gateway payment.
+        const gw: any = await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
+        if (gw?.live) {
+          // Real gateway: hand off to JazzCash/EasyPaisa. The gateway returns the
+          // user to our callback, which confirms the booking and shows the ticket.
+          redirectToGateway(gw);
+          return; // browser is navigating away
+        }
+        // Sandbox (no live creds yet): simulate a successful settlement.
         await paymentApi.mockConfirm(booking.id);
       }
 
