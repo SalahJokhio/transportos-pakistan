@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { PaymentStatus } from '@app/common';
 import { Payment } from './entities/payment.entity';
+import { PaymentConfigService } from './config/payment.config';
 import { BookingService } from '../../booking-service/src/services/booking.service';
 import { WalletService } from '../../user-service/src/services/wallet.service';
 
@@ -13,6 +14,7 @@ export class PaymentService {
 
   constructor(
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
+    private readonly cfg: PaymentConfigService,
     private readonly bookingService: BookingService,
     private readonly walletService: WalletService,
   ) {}
@@ -121,8 +123,8 @@ export class PaymentService {
    * skipped so the sandbox/mock flow still works.
    */
   private verifyJazzCashHash(payload: any): boolean {
-    const salt = process.env.JAZZCASH_INTEGRITY_SALT;
-    if (!salt || salt.startsWith('your-')) return true; // dev: no real salt
+    const salt = this.cfg.jazzcash.integritySalt;
+    if (!this.cfg.isLive('jazzcash')) return true; // dev/sandbox: no real salt
     const received = (payload?.pp_SecureHash || '').toString();
     if (!received) return false;
     const fields = Object.keys(payload)
@@ -189,8 +191,7 @@ export class PaymentService {
   }
 
   private buildJazzCashRequest(payment: Payment) {
-    const merchantId = process.env.JAZZCASH_MERCHANT_ID || '';
-    const salt = process.env.JAZZCASH_INTEGRITY_SALT || '';
+    const { merchantId, integritySalt: salt, postUrl } = this.cfg.jazzcash;
     const dateTime = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
     const expiry = new Date(Date.now() + 30 * 60000).toISOString().replace(/[-:T.]/g, '').slice(0, 14);
     const amountPaisa = (Number(payment.amount) * 100).toFixed(0);
@@ -201,9 +202,10 @@ export class PaymentService {
 
     return {
       method: 'jazzcash',
+      mode: this.cfg.mode,
       paymentId: payment.id,
       txnRefNo,
-      postUrl: 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/',
+      postUrl,
       fields: { pp_Amount: amountPaisa, pp_TxnRefNo: txnRefNo, pp_MerchantID: merchantId, pp_SecureHash: hash },
     };
   }
@@ -211,13 +213,14 @@ export class PaymentService {
   private buildEasypaisaRequest(payment: Payment) {
     return {
       method: 'easypaisa',
+      mode: this.cfg.mode,
       paymentId: payment.id,
       txnRefNo: payment.providerRef,
-      postUrl: 'https://easypaisa.com.pk/easypay/',
+      postUrl: this.cfg.easypaisa.postUrl,
       fields: {
         orderRefNum: payment.providerRef,
         amount: Number(payment.amount).toFixed(2),
-        storeId: process.env.EASYPAISA_STORE_ID,
+        storeId: this.cfg.easypaisa.storeId,
       },
     };
   }
