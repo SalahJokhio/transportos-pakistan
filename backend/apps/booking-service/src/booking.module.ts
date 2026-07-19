@@ -8,6 +8,9 @@ import { Coupon } from './entities/coupon.entity';
 import { Shift } from './entities/shift.entity';
 import { ShiftService } from './services/shift.service';
 import { FunnelEvent } from './entities/funnel-event.entity';
+import { ApiKey } from './entities/api-key.entity';
+import { ApiKeyService } from './services/api-key.service';
+import { PartnerController, ApiKeyController } from './partner.controller';
 import { BookingService } from './services/booking.service';
 import { PricingService } from './services/pricing.service';
 import { SeatLockService } from './services/seat-lock.service';
@@ -29,11 +32,11 @@ import { NotificationModule } from '../../notification-service/src/notification.
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([Booking, BookingSeat, Coupon, Shift, FunnelEvent, User, LoyaltyTransaction, Trip, Route, Bus]),
+    TypeOrmModule.forFeature([Booking, BookingSeat, Coupon, Shift, FunnelEvent, ApiKey, User, LoyaltyTransaction, Trip, Route, Bus]),
     NotificationModule, // SMS on confirm / cancel
   ],
-  controllers: [BookingController, CouponController, EventsController],
-  providers: [BookingService, PricingService, SeatLockService, TicketService, CouponService, ShiftService, ConfigService],
+  controllers: [BookingController, CouponController, EventsController, PartnerController, ApiKeyController],
+  providers: [BookingService, PricingService, SeatLockService, TicketService, CouponService, ShiftService, ApiKeyService, ConfigService],
   exports: [BookingService], // consumed by PaymentModule to confirm bookings
 })
 export class BookingModule {}

@@ -113,6 +113,11 @@ export const adminApi = {
   // Double-entry ledger
   getLedger: (limit = 100) => g(`${BASE}/ledger`, { params: { limit } }),
   getLedgerBalances: () => g(`${BASE}/ledger/balances`),
+
+  // Operator lending
+  getLoans: (status?: string) => g(`${BASE}/lending`, { params: status ? { status } : {} }),
+  approveLoan: (id: string) => p(`${BASE}/lending/${id}/approve`),
+  disburseLoan: (id: string) => p(`${BASE}/lending/${id}/disburse`),
 };
 
 export const disputesApi = {

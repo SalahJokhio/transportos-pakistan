@@ -14,9 +14,12 @@ const pkr = (n: number) => 'Rs ' + Number(n || 0).toLocaleString('en-PK');
  */
 export function FinanceConsole() {
   const qc = useQueryClient();
-  const [subTab, setSubTab] = useState<'settlements' | 'refunds' | 'coupons' | 'ledger'>('settlements');
+  const [subTab, setSubTab] = useState<'settlements' | 'refunds' | 'coupons' | 'ledger' | 'lending'>('settlements');
   const { data: ledgerBalances } = useQuery({ queryKey: ['ledger-balances'], queryFn: adminApi.getLedgerBalances, enabled: subTab === 'ledger' });
   const { data: ledgerEntries } = useQuery({ queryKey: ['ledger-entries'], queryFn: () => adminApi.getLedger(80), enabled: subTab === 'ledger' });
+  const { data: loans } = useQuery({ queryKey: ['admin-loans'], queryFn: () => adminApi.getLoans(), enabled: subTab === 'lending' });
+  const approveLoan = useMutation({ mutationFn: (id: string) => adminApi.approveLoan(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-loans'] }) });
+  const disburseLoan = useMutation({ mutationFn: (id: string) => adminApi.disburseLoan(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-loans'] }) });
 
   const { data: summary, isLoading: sumLoading } = useQuery({
     queryKey: ['admin-settlement-summary'],
@@ -67,7 +70,7 @@ export function FinanceConsole() {
   return (
     <div>
       <div className="flex gap-2 mb-5">
-        {(['settlements', 'refunds', 'coupons', 'ledger'] as const).map((t) => (
+        {(['settlements', 'refunds', 'coupons', 'ledger', 'lending'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
@@ -329,6 +332,31 @@ export function FinanceConsole() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {subTab === 'lending' && (
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b font-semibold text-gray-800">Operator advances</div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-left"><tr><th className="px-4 py-2">Company</th><th className="px-4 py-2">Principal</th><th className="px-4 py-2">Due</th><th className="px-4 py-2">Repaid</th><th className="px-4 py-2">Status</th><th className="px-4 py-2"></th></tr></thead>
+            <tbody>
+              {(loans ?? []).map((l: any) => (
+                <tr key={l.id} className="border-t">
+                  <td className="px-4 py-2 font-mono text-xs">{String(l.companyId).slice(0, 8)}</td>
+                  <td className="px-4 py-2">{pkr(l.principal)}</td>
+                  <td className="px-4 py-2">{pkr(l.totalDue)}</td>
+                  <td className="px-4 py-2 text-gray-500">{pkr(l.amountRepaid)}</td>
+                  <td className="px-4 py-2"><span className="text-xs px-2 py-0.5 rounded bg-gray-100">{l.status}</span></td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    {l.status === 'REQUESTED' && <button onClick={() => approveLoan.mutate(l.id)} className="text-xs bg-blue-600 text-white px-2 py-1 rounded mr-1">Approve</button>}
+                    {l.status === 'APPROVED' && <button onClick={() => disburseLoan.mutate(l.id)} className="text-xs bg-green-600 text-white px-2 py-1 rounded">Disburse</button>}
+                  </td>
+                </tr>
+              ))}
+              {(loans ?? []).length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No loan requests yet.</td></tr>}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import { BroadcastService } from '../services/broadcast.service';
 import { SupportService } from '../services/support.service';
 import { PlatformOpsService } from '../services/platform-ops.service';
 import { LedgerService } from '../services/ledger.service';
+import { LendingService } from '../services/lending.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -34,8 +35,29 @@ export class AdminController {
     private readonly supportService: SupportService,
     private readonly platformOps: PlatformOpsService,
     private readonly ledgerService: LedgerService,
+    private readonly lendingService: LendingService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Operator lending (#12) -------------------------------------------
+
+  @Get('lending')
+  @ApiOperation({ summary: 'All operator loans' })
+  loans(@Query('status') status?: string) {
+    return this.lendingService.listAll(status);
+  }
+
+  @Post('lending/:id/approve')
+  @ApiOperation({ summary: 'Approve a loan request' })
+  approveLoan(@Param('id') id: string) {
+    return this.lendingService.setStatus(id, 'APPROVED');
+  }
+
+  @Post('lending/:id/disburse')
+  @ApiOperation({ summary: 'Mark a loan disbursed (auto-repays from payouts)' })
+  disburseLoan(@Param('id') id: string) {
+    return this.lendingService.setStatus(id, 'DISBURSED');
+  }
 
   // ---- Double-entry ledger (#6) -----------------------------------------
 
