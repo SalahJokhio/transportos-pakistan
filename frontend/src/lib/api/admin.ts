@@ -52,6 +52,17 @@ export const adminApi = {
     api.patch(`${BASE}/companies/${companyId}`, data).then((r) => r.data),
   suspendCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/suspend`).then((r) => r.data),
   activateCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/activate`).then((r) => r.data),
+
+  // CMS / catalog
+  getCities: () => api.get(`${BASE}/catalog/cities`).then((r) => r.data),
+  addCity: (data: any) => api.post(`${BASE}/catalog/cities`, data).then((r) => r.data),
+  updateCity: (id: string, data: any) => api.patch(`${BASE}/catalog/cities/${id}`, data).then((r) => r.data),
+  deleteCity: (id: string) => api.delete(`${BASE}/catalog/cities/${id}`).then((r) => r.data),
+  getBanners: () => api.get(`${BASE}/catalog/banners`).then((r) => r.data),
+  addBanner: (data: any) => api.post(`${BASE}/catalog/banners`, data).then((r) => r.data),
+  deleteBanner: (id: string) => api.delete(`${BASE}/catalog/banners/${id}`).then((r) => r.data),
+  getFareRules: () => api.get(`${BASE}/catalog/fare-rules`).then((r) => r.data),
+  setFareRules: (data: any) => api.put(`${BASE}/catalog/fare-rules`, data).then((r) => r.data),
 };
 
 export const disputesApi = {

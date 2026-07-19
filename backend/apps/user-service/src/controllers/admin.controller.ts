@@ -1,8 +1,9 @@
-import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
 import { CompanyService } from '../services/company.service';
+import { CatalogService } from '../services/catalog.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -19,8 +20,45 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly settlementService: SettlementService,
     private readonly companyService: CompanyService,
+    private readonly catalogService: CatalogService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- CMS / catalog ----------------------------------------------------
+
+  @Get('catalog/cities')
+  @ApiOperation({ summary: 'All cities (incl. inactive)' })
+  adminCities() { return this.catalogService.listCities(false); }
+
+  @Post('catalog/cities')
+  @ApiOperation({ summary: 'Add a city' })
+  addCity(@Body() body: any) { return this.catalogService.createCity(body); }
+
+  @Patch('catalog/cities/:id')
+  updateCity(@Param('id') id: string, @Body() body: any) { return this.catalogService.updateCity(id, body); }
+
+  @Delete('catalog/cities/:id')
+  deleteCity(@Param('id') id: string) { return this.catalogService.deleteCity(id); }
+
+  @Get('catalog/banners')
+  @ApiOperation({ summary: 'All banners (incl. inactive)' })
+  adminBanners() { return this.catalogService.listBanners(undefined, false); }
+
+  @Post('catalog/banners')
+  addBanner(@Body() body: any) { return this.catalogService.createBanner(body); }
+
+  @Patch('catalog/banners/:id')
+  updateBanner(@Param('id') id: string, @Body() body: any) { return this.catalogService.updateBanner(id, body); }
+
+  @Delete('catalog/banners/:id')
+  deleteBanner(@Param('id') id: string) { return this.catalogService.deleteBanner(id); }
+
+  @Get('catalog/fare-rules')
+  getFareRules() { return this.catalogService.getFareRules(); }
+
+  @Put('catalog/fare-rules')
+  @ApiOperation({ summary: 'Set the fare governor (min/max fare, surge cap)' })
+  setFareRules(@Body() body: any) { return this.catalogService.setFareRules(body); }
 
   // ---- Multi-tenant: companies -----------------------------------------
 

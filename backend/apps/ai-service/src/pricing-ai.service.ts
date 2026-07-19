@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Trip } from '../../fleet-service/src/entities/trip.entity';
+import { PlatformSetting } from '../../user-service/src/entities/catalog.entity';
+
+const DEFAULT_FARE_RULES = { minFare: 200, maxFare: 15000, maxSurge: 1.6 };
 
 interface PriceFactor { name: string; delta: number; note: string }
 
@@ -13,7 +16,15 @@ interface PriceFactor { name: string; delta: number; note: string }
  */
 @Injectable()
 export class PricingAiService {
-  constructor(@InjectRepository(Trip) private readonly tripRepo: Repository<Trip>) {}
+  constructor(
+    @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
+    @InjectRepository(PlatformSetting) private readonly settingRepo: Repository<PlatformSetting>,
+  ) {}
+
+  private async fareRules() {
+    const row = await this.settingRepo.findOne({ where: { key: 'fare.rules' } });
+    return { ...DEFAULT_FARE_RULES, ...(row?.value ?? {}) };
+  }
 
   async suggestForTrip(tripId: string) {
     const trip = await this.tripRepo.findOne({ where: { id: tripId } });
@@ -52,10 +63,13 @@ export class PricingAiService {
     if ((hour >= 6 && hour <= 9) || (hour >= 17 && hour <= 20)) add('Peak slot', 0.05, 'rush-hour departure');
     if (dow === 5 || dow === 0) add('Weekend', 0.05, 'Fri/Sun travel');
 
+    // The fare governor caps how far dynamic pricing may move the fare.
+    const rules = await this.fareRules();
     const raw = 1 + factors.reduce((s, f) => s + f.delta, 0);
-    const multiplier = Math.min(1.6, Math.max(0.8, Number(raw.toFixed(2))));
+    const multiplier = Math.min(rules.maxSurge, Math.max(0.8, Number(raw.toFixed(2))));
     const basePrice = Number(trip.basePrice) || 0;
-    const suggestedPrice = Math.round((basePrice * multiplier) / 10) * 10;
+    let suggestedPrice = Math.round((basePrice * multiplier) / 10) * 10;
+    suggestedPrice = Math.min(rules.maxFare, Math.max(rules.minFare, suggestedPrice));
 
     return {
       tripId,

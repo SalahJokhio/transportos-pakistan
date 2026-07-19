@@ -26,6 +26,9 @@ import { Settlement } from './entities/settlement.entity';
 import { SettlementService } from './services/settlement.service';
 import { CompanyProfile } from './entities/company-profile.entity';
 import { CompanyService } from './services/company.service';
+import { City, Banner, PlatformSetting } from './entities/catalog.entity';
+import { CatalogService } from './services/catalog.service';
+import { CatalogController } from './controllers/catalog.controller';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
 import { Bus } from '../../fleet-service/src/entities/bus.entity';
@@ -43,10 +46,10 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting]),
   ],
-  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
   exports: [WalletService, CompanyService],
 })
 export class UserModule {}
