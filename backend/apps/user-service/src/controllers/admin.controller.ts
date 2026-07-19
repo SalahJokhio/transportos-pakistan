@@ -2,6 +2,7 @@ import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards } from '@ne
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
+import { CompanyService } from '../services/company.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -17,8 +18,35 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly settlementService: SettlementService,
+    private readonly companyService: CompanyService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Multi-tenant: companies -----------------------------------------
+
+  @Get('companies')
+  @ApiOperation({ summary: 'All operators with plan, status, limits and usage' })
+  companies() {
+    return this.companyService.list();
+  }
+
+  @Patch('companies/:companyId')
+  @ApiOperation({ summary: 'Update a company plan / limits / branding' })
+  updateCompany(@Param('companyId') companyId: string, @Body() body: any) {
+    return this.companyService.update(companyId, body);
+  }
+
+  @Post('companies/:companyId/suspend')
+  @ApiOperation({ summary: 'Suspend a company (also blocks the operator login)' })
+  suspendCompany(@Param('companyId') companyId: string) {
+    return this.companyService.setSuspended(companyId, true);
+  }
+
+  @Post('companies/:companyId/activate')
+  @ApiOperation({ summary: 'Reactivate a suspended company' })
+  activateCompany(@Param('companyId') companyId: string) {
+    return this.companyService.setSuspended(companyId, false);
+  }
 
   // ---- Settlements (operator payouts) -----------------------------------
 

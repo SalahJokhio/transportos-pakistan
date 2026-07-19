@@ -24,8 +24,11 @@ import { DisputeService } from './services/dispute.service';
 import { DisputesController } from './controllers/disputes.controller';
 import { Settlement } from './entities/settlement.entity';
 import { SettlementService } from './services/settlement.service';
+import { CompanyProfile } from './entities/company-profile.entity';
+import { CompanyService } from './services/company.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
+import { Bus } from '../../fleet-service/src/entities/bus.entity';
 
 @Module({
   imports: [
@@ -40,10 +43,10 @@ import { Payment } from '../../payment-service/src/entities/payment.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus]),
   ],
   controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController],
-  providers: [AuthService, UserService, AdminService, SettlementService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
-  exports: [WalletService],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  exports: [WalletService, CompanyService],
 })
 export class UserModule {}

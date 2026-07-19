@@ -45,6 +45,13 @@ export const adminApi = {
     api.get(`${BASE}/payments`, { params: limit ? { limit } : {} }).then((r) => r.data),
   refundPayment: (id: string, amount?: number, reason?: string) =>
     api.post(`${BASE}/payments/${id}/refund`, { amount, reason }).then((r) => r.data),
+
+  // Multi-tenant: companies
+  getCompanies: () => api.get(`${BASE}/companies`).then((r) => r.data),
+  updateCompany: (companyId: string, data: any) =>
+    api.patch(`${BASE}/companies/${companyId}`, data).then((r) => r.data),
+  suspendCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/suspend`).then((r) => r.data),
+  activateCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/activate`).then((r) => r.data),
 };
 
 export const disputesApi = {
