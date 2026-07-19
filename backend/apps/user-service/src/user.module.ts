@@ -33,6 +33,9 @@ import { ComplianceDocument } from './entities/compliance-document.entity';
 import { ComplianceService } from './services/compliance.service';
 import { AuditLog } from './entities/audit-log.entity';
 import { AuditService, AuditInterceptor } from './services/audit.service';
+import { Broadcast } from './entities/broadcast.entity';
+import { BroadcastService } from './services/broadcast.service';
+import { NotificationModule } from '../../notification-service/src/notification.module';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
 import { Bus } from '../../fleet-service/src/entities/bus.entity';
@@ -50,10 +53,11 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog]),
+    NotificationModule, // broadcast SMS/WhatsApp sender
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast]),
   ],
   controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
   exports: [WalletService, CompanyService],
 })
 export class UserModule {}

@@ -76,6 +76,11 @@ export const adminApi = {
   getAuditLogs: (limit = 100) => api.get(`${BASE}/audit-logs`, { params: { limit } }).then((r) => r.data),
   getRbac: () => api.get(`${BASE}/rbac`).then((r) => r.data),
   setRbac: (matrix: Record<string, string[]>) => api.put(`${BASE}/rbac`, { matrix }).then((r) => r.data),
+
+  // Broadcast center
+  getBroadcasts: () => api.get(`${BASE}/broadcasts`).then((r) => r.data),
+  segmentSize: (segment: string) => api.get(`${BASE}/broadcasts/segment-size`, { params: { segment } }).then((r) => r.data),
+  sendBroadcast: (data: any) => api.post(`${BASE}/broadcasts`, data).then((r) => r.data),
 };
 
 export const disputesApi = {

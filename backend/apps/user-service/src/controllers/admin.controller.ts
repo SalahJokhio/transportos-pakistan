@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, Request, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
@@ -6,6 +6,7 @@ import { CompanyService } from '../services/company.service';
 import { CatalogService } from '../services/catalog.service';
 import { ComplianceService } from '../services/compliance.service';
 import { AuditService, AuditInterceptor } from '../services/audit.service';
+import { BroadcastService } from '../services/broadcast.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -26,8 +27,29 @@ export class AdminController {
     private readonly catalogService: CatalogService,
     private readonly complianceService: ComplianceService,
     private readonly auditService: AuditService,
+    private readonly broadcastService: BroadcastService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Broadcast center -------------------------------------------------
+
+  @Get('broadcasts')
+  @ApiOperation({ summary: 'Broadcast history' })
+  broadcasts() {
+    return this.broadcastService.history();
+  }
+
+  @Get('broadcasts/segment-size')
+  @ApiOperation({ summary: 'Recipient count for a segment' })
+  segmentSize(@Query('segment') segment: string) {
+    return this.broadcastService.segmentSize(segment || 'ALL');
+  }
+
+  @Post('broadcasts')
+  @ApiOperation({ summary: 'Send a broadcast (SMS/WhatsApp) to a user segment' })
+  sendBroadcast(@Body() body: any, @Request() req) {
+    return this.broadcastService.send(body, req.user?.sub);
+  }
 
   // ---- Audit log + RBAC editor ------------------------------------------
 
