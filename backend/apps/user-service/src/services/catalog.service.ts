@@ -79,6 +79,26 @@ export class CatalogService {
     return value;
   }
 
+  // ---- Feature flags ----------------------------------------------------
+  private readonly DEFAULT_FLAGS = {
+    dynamic_pricing: true,
+    ai_assistant: true,
+    cod_counter_pay: true,
+    live_tracking: true,
+    // Kill-switches for Eid peak — turn heavy/non-essential features off.
+    seat_preview_animation: true,
+    recommendations: true,
+  };
+  async getFlags() {
+    const row = await this.settingRepo.findOne({ where: { key: 'feature.flags' } });
+    return { ...this.DEFAULT_FLAGS, ...(row?.value ?? {}) };
+  }
+  async setFlags(flags: Record<string, boolean>) {
+    const value = { ...(await this.getFlags()), ...flags };
+    await this.upsertSetting('feature.flags', value);
+    return value;
+  }
+
   // ---- Fraud rules ------------------------------------------------------
   async getFraudRules() {
     const row = await this.settingRepo.findOne({ where: { key: 'fraud.rules' } });

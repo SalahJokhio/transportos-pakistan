@@ -105,6 +105,10 @@ export const adminApi = {
   exportBookingsCsv: (from?: string, to?: string) => g(`${BASE}/exports/bookings.csv`, { params: { from, to } }),
   exportPaymentsCsv: (from?: string, to?: string) => g(`${BASE}/exports/payments.csv`, { params: { from, to } }),
   getSystemHealth: () => g(`${BASE}/system-health`),
+
+  // Feature flags
+  getFlags: () => g(`${BASE}/flags`),
+  setFlags: (flags: Record<string, boolean>) => pt(`${BASE}/flags`, flags),
 };
 
 export const disputesApi = {

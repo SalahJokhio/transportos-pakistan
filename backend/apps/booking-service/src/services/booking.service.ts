@@ -7,7 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError, In } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Repository, DataSource, QueryFailedError, In, LessThan } from 'typeorm';
 import { Booking } from '../entities/booking.entity';
 import { BookingSeat } from '../entities/booking-seat.entity';
 import { CreateBookingDto, CancelBookingDto } from '../dto/booking.dto';
@@ -101,6 +102,14 @@ export class BookingService {
     opts: { passengerId: string; bookedById?: string; lockHolderId: string },
   ): Promise<Booking> {
     const { passengerId, bookedById, lockHolderId } = opts;
+
+    // Idempotency: a retried/double-tapped checkout with the same key returns
+    // the original booking instead of creating (and charging for) a second one.
+    if (dto.idempotencyKey) {
+      const dupe = await this.bookingRepo.findOne({ where: { idempotencyKey: dto.idempotencyKey } });
+      if (dupe) return dupe;
+    }
+
     const trip = await this.tripRepo.findOne({ where: { id: dto.tripId } });
     if (!trip) throw new NotFoundException('Trip not found');
 
@@ -146,6 +155,7 @@ export class BookingService {
     const saved = await this.dataSource.transaction(async (em) => {
       const booking = em.create(Booking, {
         pnr,
+        idempotencyKey: dto.idempotencyKey,
         tripId: dto.tripId,
         passengerId,
         bookedById,
@@ -259,6 +269,30 @@ export class BookingService {
 
   async getUserBookings(userId: string): Promise<Booking[]> {
     return this.bookingRepo.find({ where: { passengerId: userId }, order: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Auto-expire abandoned checkouts: a booking left in PENDING_PAYMENT for >15
+   * minutes is cancelled and its seat holds released, so a user who never paid
+   * can't keep seats locked out of inventory. Runs every 5 minutes.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async expireStaleBookings() {
+    const cutoff = new Date(Date.now() - 15 * 60_000);
+    const stale = await this.bookingRepo.find({
+      where: { status: BookingStatus.PENDING_PAYMENT, createdAt: LessThan(cutoff) },
+      take: 200,
+    });
+    if (!stale.length) return;
+    for (const b of stale) {
+      await this.bookingRepo.update(b.id, {
+        status: BookingStatus.CANCELLED,
+        cancellationReason: 'Payment not completed (auto-expired)',
+        cancelledAt: new Date(),
+      });
+      await this.seatLockService.release(b.tripId, b.seatNumbers).catch(() => undefined);
+    }
+    this.logger.log(`Expired ${stale.length} stale PENDING_PAYMENT booking(s)`);
   }
 
   async cancel(id: string, dto: CancelBookingDto, userId: string): Promise<Booking> {

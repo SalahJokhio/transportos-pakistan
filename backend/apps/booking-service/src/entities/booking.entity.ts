@@ -10,6 +10,13 @@ export class Booking {
   @Column()
   pnr: string;
 
+  // Client-supplied dedup key: a double-tapped "Book" (common on PK networks)
+  // returns the original booking instead of creating a second one. Nullable +
+  // unique (Postgres allows many NULLs, so old rows are unaffected).
+  @Index({ unique: true })
+  @Column({ nullable: true })
+  idempotencyKey: string;
+
   @Column()
   tripId: string;
 

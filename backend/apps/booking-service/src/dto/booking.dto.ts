@@ -29,6 +29,13 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   customerPhone?: string;
+
+  // Idempotency: the client sends the same key on retries of one checkout, so a
+  // double-tapped "Book" returns the original booking instead of a duplicate.
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  idempotencyKey?: string;
 }
 
 export class CancelBookingDto {

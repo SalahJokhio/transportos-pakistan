@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Repository, In, LessThan } from 'typeorm';
 import { PaymentStatus } from '@app/common';
 import { Payment } from './entities/payment.entity';
@@ -276,6 +277,12 @@ export class PaymentService {
    * Pakistani rail can drop a callback — this is how we never leave a paid
    * booking unconfirmed (or an abandoned one blocking a seat). Run on a cron.
    */
+  /** Runs the reconcile automatically so a dropped gateway callback self-heals. */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async reconcileCron() {
+    try { await this.reconcile(5); } catch (e: any) { this.logger.warn(`reconcile cron: ${e.message}`); }
+  }
+
   async reconcile(olderThanMinutes = 5) {
     const cutoff = new Date(Date.now() - olderThanMinutes * 60_000);
     const stuck = await this.paymentRepo.find({

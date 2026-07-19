@@ -25,4 +25,10 @@ export class CatalogController {
   fareRules() {
     return this.catalog.getFareRules();
   }
+
+  @Get('flags')
+  @ApiOperation({ summary: 'Public feature flags for the client' })
+  flags() {
+    return this.catalog.getFlags();
+  }
 }

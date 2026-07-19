@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from '@app/database';
 
 // Import all service modules
@@ -21,6 +22,7 @@ import { UploadController } from './upload.controller';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    ScheduleModule.forRoot(), // enables @Cron jobs (reconcile, stale-booking expiry)
     DatabaseModule,
     UserModule,
     FleetModule,

@@ -39,6 +39,11 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [promoMsg, setPromoMsg] = useState('');
   const total = Math.max(0, subtotal + gst - discount);
+  // Stable idempotency key for this checkout — a double-tapped "Book" reuses it
+  // so the server returns the original booking instead of creating a duplicate.
+  const [idempotencyKey] = useState(() =>
+    (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bk-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+  );
 
   const applyPromo = async () => {
     setPromoMsg('');
@@ -66,6 +71,7 @@ export default function CheckoutPage() {
         seatNumbers: seats,
         passengerDetails: passengers,
         promoCode: discount > 0 ? promo : undefined,
+        idempotencyKey,
       });
 
       if (paymentMethod === 'wallet') {

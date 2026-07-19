@@ -138,6 +138,18 @@ export class AdminController {
     return this.auditService.list(limit ? Number(limit) : 100);
   }
 
+  @Get('flags')
+  @ApiOperation({ summary: 'Feature flags (with kill-switches)' })
+  getFlags() {
+    return this.catalogService.getFlags();
+  }
+
+  @Put('flags')
+  @ApiOperation({ summary: 'Toggle feature flags' })
+  setFlags(@Body() body: Record<string, boolean>) {
+    return this.catalogService.setFlags(body);
+  }
+
   @Get('rbac')
   @ApiOperation({ summary: 'Role → capability permission matrix' })
   getRbac() {

@@ -2,15 +2,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api/admin';
-import { Activity, ShieldAlert, Download, Save, Database } from 'lucide-react';
+import { Activity, ShieldAlert, Download, Save, Database, Flag } from 'lucide-react';
 
-/** Platform ops: system health, fraud-rule engine, and finance/tax CSV exports. */
+/** Platform ops: system health, fraud-rule engine, finance CSV exports, feature flags. */
 export function SystemConsole() {
-  const [tab, setTab] = useState<'health' | 'fraud' | 'exports'>('health');
+  const [tab, setTab] = useState<'health' | 'fraud' | 'exports' | 'flags'>('health');
   return (
     <div>
       <div className="flex gap-2 mb-5">
-        {([['health', 'System health'], ['fraud', 'Fraud rules'], ['exports', 'Exports']] as const).map(([k, label]) => (
+        {([['health', 'System health'], ['fraud', 'Fraud rules'], ['exports', 'Exports'], ['flags', 'Feature flags']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === k ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600'}`}>{label}</button>
         ))}
@@ -18,6 +18,36 @@ export function SystemConsole() {
       {tab === 'health' && <Health />}
       {tab === 'fraud' && <Fraud />}
       {tab === 'exports' && <Exports />}
+      {tab === 'flags' && <Flags />}
+    </div>
+  );
+}
+
+function Flags() {
+  const qc = useQueryClient();
+  const { data: flags } = useQuery({ queryKey: ['feature-flags'], queryFn: adminApi.getFlags });
+  const toggle = useMutation({
+    mutationFn: (patch: Record<string, boolean>) => adminApi.setFlags(patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['feature-flags'] }),
+  });
+  return (
+    <div className="card p-5 max-w-lg">
+      <div className="flex items-center gap-2 font-semibold text-gray-800 mb-1"><Flag size={16} /> Feature flags</div>
+      <p className="text-xs text-gray-500 mb-4">Toggle features live. Turn heavy ones off during Eid peak (kill-switch).</p>
+      <div className="divide-y">
+        {Object.entries(flags ?? {}).map(([key, val]) => (
+          <div key={key} className="flex items-center justify-between py-2.5">
+            <span className="text-sm capitalize">{key.replace(/_/g, ' ')}</span>
+            <button
+              onClick={() => toggle.mutate({ [key]: !val })}
+              className={`w-11 h-6 rounded-full transition-colors relative ${val ? 'bg-green-500' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${val ? 'left-[22px]' : 'left-0.5'}`} />
+            </button>
+          </div>
+        ))}
+        {Object.keys(flags ?? {}).length === 0 && <div className="py-4 text-center text-gray-400 text-sm">Loading…</div>}
+      </div>
     </div>
   );
 }
