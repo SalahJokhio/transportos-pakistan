@@ -39,6 +39,8 @@ import { SupportTicket, SupportMessage } from './entities/support-ticket.entity'
 import { SupportService } from './services/support.service';
 import { SupportController } from './controllers/support.controller';
 import { PlatformOpsService } from './services/platform-ops.service';
+import { LedgerEntry } from './entities/ledger-entry.entity';
+import { LedgerService } from './services/ledger.service';
 import { NotificationModule } from '../../notification-service/src/notification.module';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
@@ -58,10 +60,10 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
       }),
     }),
     NotificationModule, // broadcast SMS/WhatsApp sender
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast, SupportTicket, SupportMessage]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast, SupportTicket, SupportMessage, LedgerEntry]),
   ],
   controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController, SupportController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, SupportService, PlatformOpsService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
-  exports: [WalletService, CompanyService],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, SupportService, PlatformOpsService, LedgerService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  exports: [WalletService, CompanyService, LedgerService],
 })
 export class UserModule {}

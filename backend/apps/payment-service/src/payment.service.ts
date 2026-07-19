@@ -10,6 +10,7 @@ import { EasypaisaProvider } from './providers/easypaisa.provider';
 import { PaymentProvider } from './providers/payment-provider.interface';
 import { BookingService } from '../../booking-service/src/services/booking.service';
 import { WalletService } from '../../user-service/src/services/wallet.service';
+import { LedgerService } from '../../user-service/src/services/ledger.service';
 
 @Injectable()
 export class PaymentService {
@@ -23,6 +24,7 @@ export class PaymentService {
     private readonly easypaisa: EasypaisaProvider,
     private readonly bookingService: BookingService,
     private readonly walletService: WalletService,
+    private readonly ledger: LedgerService,
   ) {
     this.providers = { jazzcash: this.jazzcash, easypaisa: this.easypaisa };
   }
@@ -177,6 +179,10 @@ export class PaymentService {
     await this.paymentRepo.update(payment.id, { status: PaymentStatus.COMPLETED });
     try {
       await this.bookingService.confirm(payment.bookingId, payment.id);
+      // Book the sale into the double-entry ledger (gateway → operator + platform).
+      const commissionPct = Number(process.env.PLATFORM_COMMISSION_PCT ?? 10);
+      const commission = Math.round(Number(payment.amount) * commissionPct) / 100;
+      this.ledger.recordSale(payment.id, Number(payment.amount), commission, payment.bookingId).catch(() => undefined);
     } catch (err: any) {
       // Seat was taken between booking and payment: the charge went through but
       // we can't seat the passenger. Reverse the money so nobody is charged for
@@ -246,6 +252,7 @@ export class PaymentService {
       refundedAmount: refundedTotal,
       status: refundedTotal >= Number(payment.amount) ? PaymentStatus.REFUNDED : payment.status,
     });
+    this.ledger.recordRefund(payment.id, amount, payment.bookingId).catch(() => undefined);
     return { success: true, paymentId: payment.id, refundedAmount: refundedTotal, ref };
   }
 

@@ -109,6 +109,10 @@ export const adminApi = {
   // Feature flags
   getFlags: () => g(`${BASE}/flags`),
   setFlags: (flags: Record<string, boolean>) => pt(`${BASE}/flags`, flags),
+
+  // Double-entry ledger
+  getLedger: (limit = 100) => g(`${BASE}/ledger`, { params: { limit } }),
+  getLedgerBalances: () => g(`${BASE}/ledger/balances`),
 };
 
 export const disputesApi = {

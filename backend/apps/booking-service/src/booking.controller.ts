@@ -71,6 +71,12 @@ export class BookingController {
     return this.ticketService.verify(pnr, sig);
   }
 
+  @Post('board/:pnr')
+  @ApiOperation({ summary: 'QR boarding check-in — verify + stamp boarded (#7)' })
+  board(@Param('pnr') pnr: string, @Body() body: { sig: string }) {
+    return this.ticketService.board(pnr, body?.sig);
+  }
+
   @Get('manifest/:tripId')
   @ApiOperation({ summary: 'Operator boarding manifest (passenger list for a trip)' })
   manifest(@Param('tripId') tripId: string, @Request() req) {

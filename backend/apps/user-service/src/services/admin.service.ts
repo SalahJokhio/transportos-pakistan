@@ -6,6 +6,7 @@ import { UserRole, PaymentStatus } from '@app/common';
 import { Booking } from '../../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../../payment-service/src/entities/payment.entity';
 import { WalletService } from './wallet.service';
+import { LedgerService } from './ledger.service';
 import { BookingStatus } from '@app/common';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class AdminService {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
     private readonly walletService: WalletService,
+    private readonly ledger: LedgerService,
   ) {}
 
   /** Recent payments with the booking PNR, for the refunds console. */
@@ -63,6 +65,7 @@ export class AdminService {
       refundedAmount: refundedTotal,
       status: refundedTotal >= Number(payment.amount) ? PaymentStatus.REFUNDED : payment.status,
     });
+    this.ledger.recordRefund(payment.id, toRefund, payment.bookingId).catch(() => undefined);
     return { success: true, paymentId: payment.id, refundedAmount: refundedTotal };
   }
 

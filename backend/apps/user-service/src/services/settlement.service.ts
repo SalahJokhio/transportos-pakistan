@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Settlement } from '../entities/settlement.entity';
+import { LedgerService } from './ledger.service';
 
 const DEFAULT_COMMISSION_PCT = Number(process.env.PLATFORM_COMMISSION_PCT ?? 10);
 
@@ -30,6 +31,7 @@ export class SettlementService {
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Settlement) private readonly settlementRepo: Repository<Settlement>,
+    private readonly ledger: LedgerService,
   ) {}
 
   /** Live payable summary per operator (gross → commission → net → outstanding). */
@@ -124,6 +126,7 @@ export class SettlementService {
     if (!s) throw new NotFoundException('Settlement not found');
     if (s.status === 'PAID') return s;
     await this.settlementRepo.update(id, { status: 'PAID', paidAt: new Date(), reference: reference ?? null });
+    this.ledger.recordPayout(id, Number(s.netPayable)).catch(() => undefined);
     return this.settlementRepo.findOne({ where: { id } });
   }
 }

@@ -61,6 +61,10 @@ export class BookingService {
       const routeStr = route ? `${route.originCity} → ${route.destinationCity}` : 'your trip';
       const departure = trip ? new Date(trip.departureTime).toLocaleString('en-PK') : '';
       await this.notificationService.sendBookingConfirmation(user.phone, booking.pnr, routeStr, departure);
+      // WhatsApp-first for Pakistan — send the same confirmation on WhatsApp too.
+      this.notificationService
+        .sendWhatsApp({ phone: user.phone, message: `✅ Booking confirmed! PNR ${booking.pnr}, ${routeStr}, ${departure}. Seats: ${booking.seatNumbers.join(', ')}` })
+        .catch(() => undefined);
     } catch (err: any) {
       this.logger.warn(`Confirmation SMS failed for ${booking.pnr}: ${err.message}`);
     }

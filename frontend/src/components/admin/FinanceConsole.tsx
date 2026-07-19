@@ -14,7 +14,9 @@ const pkr = (n: number) => 'Rs ' + Number(n || 0).toLocaleString('en-PK');
  */
 export function FinanceConsole() {
   const qc = useQueryClient();
-  const [subTab, setSubTab] = useState<'settlements' | 'refunds' | 'coupons'>('settlements');
+  const [subTab, setSubTab] = useState<'settlements' | 'refunds' | 'coupons' | 'ledger'>('settlements');
+  const { data: ledgerBalances } = useQuery({ queryKey: ['ledger-balances'], queryFn: adminApi.getLedgerBalances, enabled: subTab === 'ledger' });
+  const { data: ledgerEntries } = useQuery({ queryKey: ['ledger-entries'], queryFn: () => adminApi.getLedger(80), enabled: subTab === 'ledger' });
 
   const { data: summary, isLoading: sumLoading } = useQuery({
     queryKey: ['admin-settlement-summary'],
@@ -65,7 +67,7 @@ export function FinanceConsole() {
   return (
     <div>
       <div className="flex gap-2 mb-5">
-        {(['settlements', 'refunds', 'coupons'] as const).map((t) => (
+        {(['settlements', 'refunds', 'coupons', 'ledger'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
@@ -285,6 +287,45 @@ export function FinanceConsole() {
                 {(coupons ?? []).length === 0 && (
                   <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No coupons yet.</td></tr>
                 )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'ledger' && (
+        <div className="space-y-6">
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center justify-between font-semibold text-gray-800">
+              <span>Account balances (double-entry)</span>
+              <span className="text-xs text-gray-400">net-zero check: {pkr(ledgerBalances?.netZeroCheck ?? 0)}</span>
+            </div>
+            <table className="w-full text-sm">
+              <tbody>
+                {(ledgerBalances?.accounts ?? []).map((a: any) => (
+                  <tr key={a.account} className="border-t">
+                    <td className="px-4 py-2 font-medium capitalize">{a.account.replace(/_/g, ' ')}</td>
+                    <td className={`px-4 py-2 text-right ${a.balance < 0 ? 'text-red-600' : 'text-gray-800'}`}>{pkr(a.balance)}</td>
+                  </tr>
+                ))}
+                {(ledgerBalances?.accounts ?? []).length === 0 && <tr><td className="px-4 py-6 text-center text-gray-400">No entries yet — confirm a booking to post a sale.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b font-semibold text-gray-800">Recent entries</div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-left"><tr><th className="px-4 py-2">Account</th><th className="px-4 py-2">Dir</th><th className="px-4 py-2">Amount</th><th className="px-4 py-2">Memo</th></tr></thead>
+              <tbody>
+                {(ledgerEntries ?? []).map((e: any) => (
+                  <tr key={e.id} className="border-t">
+                    <td className="px-4 py-2 capitalize">{e.account.replace(/_/g, ' ')}</td>
+                    <td className={`px-4 py-2 text-xs font-semibold ${e.direction === 'CREDIT' ? 'text-green-600' : 'text-red-600'}`}>{e.direction}</td>
+                    <td className="px-4 py-2">{pkr(e.amount)}</td>
+                    <td className="px-4 py-2 text-gray-400 text-xs">{e.memo}</td>
+                  </tr>
+                ))}
+                {(ledgerEntries ?? []).length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">No entries yet.</td></tr>}
               </tbody>
             </table>
           </div>

@@ -55,6 +55,10 @@ export class Booking {
   @Column({ nullable: true })
   cancelledAt: Date;
 
+  // #7 QR boarding: stamped when the conductor scans the ticket at boarding.
+  @Column({ type: 'timestamp', nullable: true })
+  boardedAt: Date;
+
   @Column({ type: 'jsonb', nullable: true })
   passengerDetails: Array<{
     name: string;

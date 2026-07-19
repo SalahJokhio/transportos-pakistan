@@ -9,6 +9,7 @@ import { AuditService, AuditInterceptor } from '../services/audit.service';
 import { BroadcastService } from '../services/broadcast.service';
 import { SupportService } from '../services/support.service';
 import { PlatformOpsService } from '../services/platform-ops.service';
+import { LedgerService } from '../services/ledger.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -32,8 +33,23 @@ export class AdminController {
     private readonly broadcastService: BroadcastService,
     private readonly supportService: SupportService,
     private readonly platformOps: PlatformOpsService,
+    private readonly ledgerService: LedgerService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Double-entry ledger (#6) -----------------------------------------
+
+  @Get('ledger')
+  @ApiOperation({ summary: 'Recent ledger entries (book of record)' })
+  ledger(@Query('limit') limit?: string) {
+    return this.ledgerService.recent(limit ? Number(limit) : 100);
+  }
+
+  @Get('ledger/balances')
+  @ApiOperation({ summary: 'Net balance per account (+ net-zero reconciliation check)' })
+  ledgerBalances() {
+    return this.ledgerService.balances();
+  }
 
   // ---- Fraud rules engine (#7) ------------------------------------------
 
