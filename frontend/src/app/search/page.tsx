@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { tripApi } from '@/lib/api/endpoints';
+import { tripApi, eventsApi } from '@/lib/api/endpoints';
 import { Bus, Clock, MapPin, Armchair, ArrowRight, Train, Plane, Navigation } from 'lucide-react';
 
 function formatTime(date: string) {
@@ -38,6 +38,8 @@ export default function SearchPage() {
     date: sp.get('date') || '',
     passengers: Number(sp.get('passengers') || 1),
   };
+
+  useEffect(() => { eventsApi.funnel('search'); }, []);
 
   const { data: trips, isLoading, error } = useQuery({
     queryKey: ['trips', params, transportType],

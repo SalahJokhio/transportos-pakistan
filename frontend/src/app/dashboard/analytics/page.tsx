@@ -94,10 +94,39 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        <BookingFunnel />
         <ForecastAndScorecards companyId={companyId} />
         <DynamicPricing />
       </div>
     </>
+  );
+}
+
+/** #4 — booking funnel: where users drop off (search → seat → pay-start → paid). */
+function BookingFunnel() {
+  const { data } = useQuery({ queryKey: ['analytics-funnel'], queryFn: () => analyticsApi.funnel(14) });
+  const stages: any[] = data?.stages ?? [];
+  const max = Math.max(1, ...stages.map((s) => s.count));
+  const label: Record<string, string> = { search: 'Searched', seat_select: 'Picked seats', pay_start: 'Started payment', pay_done: 'Booked' };
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 font-semibold text-slate-800"><TrendingUp size={16} /> Booking funnel (14d)</div>
+        <span className="text-sm text-slate-500">Conversion: <b className="text-orange-600">{data?.conversion ?? 0}%</b></span>
+      </div>
+      <div className="space-y-2">
+        {stages.map((s) => (
+          <div key={s.stage} className="flex items-center gap-3 text-sm">
+            <span className="w-28 text-slate-500">{label[s.stage] || s.stage}</span>
+            <div className="flex-1 bg-slate-100 rounded h-6 overflow-hidden">
+              <div className="h-6 bg-orange-500/80 rounded flex items-center px-2 text-xs text-white" style={{ width: `${Math.max(6, (s.count / max) * 100)}%` }}>{s.count}</div>
+            </div>
+            <span className="w-12 text-right text-slate-400">{s.pctOfSearch}%</span>
+          </div>
+        ))}
+        {stages.every((s) => s.count === 0) && <div className="text-slate-400 text-sm py-2">No funnel data yet — book a ticket to populate.</div>}
+      </div>
+    </div>
   );
 }
 

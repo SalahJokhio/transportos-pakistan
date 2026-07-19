@@ -32,6 +32,11 @@ export class Booking {
   @Column({ type: 'enum', enum: BookingStatus, default: BookingStatus.PENDING_PAYMENT })
   status: BookingStatus;
 
+  // ONLINE (auto-expires if unpaid) | COUNTER (cash-on-counter reservation, held
+  // until the agent collects cash — not auto-expired by the 15-min cron).
+  @Column({ default: 'ONLINE' })
+  paymentMode: string;
+
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 

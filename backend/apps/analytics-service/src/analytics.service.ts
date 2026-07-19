@@ -113,6 +113,23 @@ export class AnalyticsService {
     };
   }
 
+  /** Booking funnel: counts per stage + conversion from search → paid. */
+  async funnel(days = 14) {
+    const rows = await this.bookingRepo.query(
+      `SELECT stage, COUNT(*)::int AS n FROM funnel_events
+       WHERE "createdAt" >= now() - ($1 || ' days')::interval GROUP BY stage`,
+      [String(days)],
+    );
+    const by: Record<string, number> = {};
+    for (const r of rows) by[r.stage] = Number(r.n);
+    const search = by.search || 0;
+    const order = ['search', 'seat_select', 'pay_start', 'pay_done'];
+    return {
+      stages: order.map((s) => ({ stage: s, count: by[s] || 0, pctOfSearch: search ? Math.round(((by[s] || 0) / search) * 100) : 0 })),
+      conversion: search ? Math.round(((by.pay_done || 0) / search) * 100) : 0,
+    };
+  }
+
   /** Driver scorecards: rating, review count, trips completed, on-time rate. */
   async driverScorecards(companyId?: string) {
     const reviews = await this.bookingRepo.query(

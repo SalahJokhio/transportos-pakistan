@@ -1,7 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { tripApi, bookingApi } from '@/lib/api/endpoints';
+import { tripApi, bookingApi, eventsApi } from '@/lib/api/endpoints';
 import { useState } from 'react';
 import { Check, Disc3, DoorClosed, Armchair } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
@@ -99,8 +99,10 @@ export default function BookPage() {
   const lockMutation = useMutation({
     mutationFn: () => bookingApi.lockSeats({ tripId, seatNumbers: selected }),
     onSuccess: (res: any) => {
-      if (res.success) router.push(`/checkout?tripId=${tripId}&seats=${selected.join(',')}&gender=${gender}`);
-      else alert(res.message);
+      if (res.success) {
+        eventsApi.funnel('seat_select', { tripId });
+        router.push(`/checkout?tripId=${tripId}&seats=${selected.join(',')}&gender=${gender}`);
+      } else alert(res.message);
     },
   });
 

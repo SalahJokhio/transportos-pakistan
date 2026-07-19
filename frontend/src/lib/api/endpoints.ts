@@ -55,12 +55,20 @@ export const paymentApi = {
 
 export const analyticsApi = {
   overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
+  funnel: (days = 14) => get('/analytics/funnel', { params: { days } }),
   forecast: (companyId?: string) => get('/analytics/forecast', companyId ? { params: { companyId } } : undefined),
   driverScorecards: (companyId?: string) => get('/analytics/driver-scorecards', companyId ? { params: { companyId } } : undefined),
 };
 
 export const assistantApi = {
   chat: (message: string, history: any[] = []) => post('/assistant/chat', { message, history }),
+};
+
+export const eventsApi = {
+  // Fire-and-forget funnel tracking — never block the UI on it.
+  funnel: (stage: string, meta: { tripId?: string; sessionId?: string; userId?: string } = {}) => {
+    try { post('/events/funnel', { stage, ...meta }); } catch { /* ignore */ }
+  },
 };
 
 export const trackingApi = {

@@ -1,14 +1,14 @@
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth.store';
-import { bookingApi, paymentApi, tripApi, couponApi } from '@/lib/api/endpoints';
+import { bookingApi, paymentApi, tripApi, couponApi, eventsApi } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
 import { redirectToGateway } from '@/lib/payment/redirectToGateway';
 
-type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet';
+type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet' | 'counter';
 
 export default function CheckoutPage() {
   const sp = useSearchParams();
@@ -45,6 +45,9 @@ export default function CheckoutPage() {
     (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bk-${Date.now()}-${Math.random().toString(36).slice(2)}`),
   );
 
+  // Funnel: reaching checkout = payment started.
+  useEffect(() => { eventsApi.funnel('pay_start', { tripId }); }, [tripId]);
+
   const applyPromo = async () => {
     setPromoMsg('');
     try {
@@ -72,25 +75,29 @@ export default function CheckoutPage() {
         passengerDetails: passengers,
         promoCode: discount > 0 ? promo : undefined,
         idempotencyKey,
+        paymentMode: paymentMethod === 'counter' ? 'COUNTER' : 'ONLINE',
       });
 
-      if (paymentMethod === 'wallet') {
-        // 2a. Pay straight from the wallet balance (debits + confirms).
+      if (paymentMethod === 'counter') {
+        // 2a. Cash-on-counter: reserve now, pay at the counter. Seats stay held.
+        eventsApi.funnel('pay_done', { tripId });
+        router.push(`/booking/${booking.pnr}?reserved=1`);
+        return;
+      } else if (paymentMethod === 'wallet') {
+        // 2b. Pay straight from the wallet balance (debits + confirms).
         await paymentApi.payWithWallet(booking.id);
       } else {
-        // 2b. Start the gateway payment.
+        // 2c. Start the gateway payment.
         const gw: any = await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
         if (gw?.live) {
-          // Real gateway: hand off to JazzCash/EasyPaisa. The gateway returns the
-          // user to our callback, which confirms the booking and shows the ticket.
           redirectToGateway(gw);
           return; // browser is navigating away
         }
-        // Sandbox (no live creds yet): simulate a successful settlement.
-        await paymentApi.mockConfirm(booking.id);
+        await paymentApi.mockConfirm(booking.id); // sandbox settle
       }
 
       // 3. Done — show the e-ticket.
+      eventsApi.funnel('pay_done', { tripId });
       router.push(`/booking/${booking.pnr}?confirmed=1`);
     } catch (err: any) {
       setError(err.message || 'Booking failed. Please try again.');
@@ -168,11 +175,12 @@ export default function CheckoutPage() {
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
               <CreditCard size={18} className="text-orange-600" /> Payment Method
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {([
                 { id: 'wallet', label: 'Wallet', color: 'text-slate-800', bg: 'bg-slate-100 border-slate-300' },
                 { id: 'jazzcash', label: 'JazzCash', color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
                 { id: 'easypaisa', label: 'EasyPaisa', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+                { id: 'counter', label: 'Pay at counter', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
               ] as const).map((m) => (
                 <button
                   key={m.id}

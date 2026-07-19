@@ -11,6 +11,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Repository, DataSource, QueryFailedError, In, LessThan } from 'typeorm';
 import { Booking } from '../entities/booking.entity';
 import { BookingSeat } from '../entities/booking-seat.entity';
+import { FunnelEvent } from '../entities/funnel-event.entity';
 import { CreateBookingDto, CancelBookingDto } from '../dto/booking.dto';
 import { CouponService } from './coupon.service';
 import { BookingStatus, PaymentStatus, StringUtil } from '@app/common';
@@ -36,6 +37,7 @@ export class BookingService {
 
   constructor(
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
+    @InjectRepository(FunnelEvent) private readonly funnelRepo: Repository<FunnelEvent>,
     @InjectRepository(BookingSeat) private readonly bookingSeatRepo: Repository<BookingSeat>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(LoyaltyTransaction) private readonly loyaltyRepo: Repository<LoyaltyTransaction>,
@@ -156,6 +158,7 @@ export class BookingService {
       const booking = em.create(Booking, {
         pnr,
         idempotencyKey: dto.idempotencyKey,
+        paymentMode: dto.paymentMode === 'COUNTER' ? 'COUNTER' : 'ONLINE',
         tripId: dto.tripId,
         passengerId,
         bookedById,
@@ -280,7 +283,9 @@ export class BookingService {
   async expireStaleBookings() {
     const cutoff = new Date(Date.now() - 15 * 60_000);
     const stale = await this.bookingRepo.find({
-      where: { status: BookingStatus.PENDING_PAYMENT, createdAt: LessThan(cutoff) },
+      // Only auto-expire ONLINE checkouts. COUNTER (cash-on-counter) holds wait
+      // for the agent to collect cash.
+      where: { status: BookingStatus.PENDING_PAYMENT, paymentMode: 'ONLINE', createdAt: LessThan(cutoff) },
       take: 200,
     });
     if (!stale.length) return;
@@ -293,6 +298,22 @@ export class BookingService {
       await this.seatLockService.release(b.tripId, b.seatNumbers).catch(() => undefined);
     }
     this.logger.log(`Expired ${stale.length} stale PENDING_PAYMENT booking(s)`);
+  }
+
+  /** Counter agent collected cash for a COUNTER-mode reservation → confirm it. */
+  async collectCash(id: string): Promise<Booking> {
+    const booking = await this.findById(id);
+    if (booking.status === BookingStatus.CONFIRMED) return booking;
+    if (booking.status !== BookingStatus.PENDING_PAYMENT) {
+      throw new BadRequestException(`Cannot collect cash for a ${booking.status} booking`);
+    }
+    return this.confirm(id, `CASH-${Date.now()}`);
+  }
+
+  /** Record a booking-funnel step (search → seat_select → pay_start → pay_done). */
+  async recordFunnel(stage: string, meta: { sessionId?: string; tripId?: string; userId?: string } = {}) {
+    await this.funnelRepo.save(this.funnelRepo.create({ stage, ...meta })).catch(() => undefined);
+    return { ok: true };
   }
 
   async cancel(id: string, dto: CancelBookingDto, userId: string): Promise<Booking> {

@@ -47,6 +47,12 @@ export class BookingController {
     return this.shiftService.history(req.user?.sub);
   }
 
+  @Post(':id/collect-cash')
+  @ApiOperation({ summary: 'Counter agent collects cash → confirm a COUNTER reservation (#5 COD)' })
+  collectCash(@Param('id') id: string) {
+    return this.bookingService.collectCash(id);
+  }
+
   @Get('ticket/:pnr')
   @ApiOperation({ summary: 'Full e-ticket: booking + trip/route/bus + scannable QR' })
   ticket(@Param('pnr') pnr: string) {

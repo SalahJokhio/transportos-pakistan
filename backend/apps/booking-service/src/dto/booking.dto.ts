@@ -36,6 +36,12 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   idempotencyKey?: string;
+
+  // ONLINE | COUNTER (cash-on-counter reservation, pay at the counter later).
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  paymentMode?: string;
 }
 
 export class CancelBookingDto {

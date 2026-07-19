@@ -13,6 +13,12 @@ export class AnalyticsController {
     return this.analytics.overview(companyId);
   }
 
+  @Get('funnel')
+  @ApiOperation({ summary: 'Booking funnel drop-off (search → seat → pay-start → paid)' })
+  funnel(@Query('days') days?: string) {
+    return this.analytics.funnel(days ? Number(days) : 14);
+  }
+
   @Get('forecast')
   @ApiOperation({ summary: 'Per-route demand forecast (avg/trip + next-week projection)' })
   forecast(@Query('companyId') companyId?: string) {
