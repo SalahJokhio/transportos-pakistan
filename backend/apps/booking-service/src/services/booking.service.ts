@@ -11,6 +11,7 @@ import { Repository, DataSource, QueryFailedError, In } from 'typeorm';
 import { Booking } from '../entities/booking.entity';
 import { BookingSeat } from '../entities/booking-seat.entity';
 import { CreateBookingDto, CancelBookingDto } from '../dto/booking.dto';
+import { CouponService } from './coupon.service';
 import { BookingStatus, PaymentStatus, StringUtil } from '@app/common';
 import { Payment } from '../../../payment-service/src/entities/payment.entity';
 import { SeatLockService } from './seat-lock.service';
@@ -42,6 +43,7 @@ export class BookingService {
     @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
     private readonly seatLockService: SeatLockService,
     private readonly pricingService: PricingService,
+    private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
     private readonly dataSource: DataSource,
   ) {}
@@ -127,7 +129,21 @@ export class BookingService {
     const price = this.pricingService.calculate(Number(trip.basePrice), dto.seatNumbers.length);
     const pnr = StringUtil.generateReference('TOS');
 
-    return this.dataSource.transaction(async (em) => {
+    // Apply a promo code on top of any base discount (validated server-side
+    // against the real subtotal — the client can't inflate the discount).
+    let discountAmount = Number(price.discount);
+    let finalAmount = Number(price.total);
+    let appliedCoupon: string | undefined;
+    if (dto.promoCode) {
+      const res = await this.couponService.validate(dto.promoCode, Number(price.subtotal));
+      if (res.valid && res.discount > 0) {
+        discountAmount += res.discount;
+        finalAmount = Math.max(0, finalAmount - res.discount);
+        appliedCoupon = res.code;
+      }
+    }
+
+    const saved = await this.dataSource.transaction(async (em) => {
       const booking = em.create(Booking, {
         pnr,
         tripId: dto.tripId,
@@ -136,11 +152,11 @@ export class BookingService {
         seatNumbers: dto.seatNumbers,
         passengerDetails: dto.passengerDetails,
         totalAmount: price.subtotal,
-        discountAmount: price.discount,
-        finalAmount: price.total,
+        discountAmount,
+        finalAmount,
         status: BookingStatus.PENDING_PAYMENT,
       });
-      const saved = await em.save(Booking, booking);
+      const created = await em.save(Booking, booking);
 
       // One HELD seat row per seat. HELD rows are not covered by the partial
       // unique index, so concurrent bookings can co-exist until one confirms.
@@ -148,15 +164,19 @@ export class BookingService {
         em.create(BookingSeat, {
           tripId: dto.tripId,
           seatNumber,
-          bookingId: saved.id,
+          bookingId: created.id,
           passengerId,
           gender: seatGender[seatNumber] ?? null,
           status: 'HELD' as const,
         }),
       );
       await em.save(BookingSeat, seatRows);
-      return saved;
+      return created;
     });
+
+    // Count the redemption once the booking exists (best-effort).
+    if (appliedCoupon) await this.couponService.redeem(appliedCoupon).catch(() => undefined);
+    return saved;
   }
 
   /** Neighbour column within a 2-seat block: (1,2) and (3,4) are pairs. */

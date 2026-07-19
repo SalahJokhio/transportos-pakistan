@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../data/api_client.dart';
 import 'ticket_screen.dart';
+import 'gateway_webview_screen.dart';
 
 /// Pick seats from the live seat map, enter passenger names, and pay
 /// (wallet or sandbox gateway). On success, shows the e-ticket.
@@ -73,10 +74,18 @@ class _BookingScreenState extends State<BookingScreen> {
         await api.payWithWallet(bookingId);
       } else {
         final gw = await api.dio.post('/payments/initiate', data: {'bookingId': bookingId, 'method': _method});
-        if (gw.data is Map && gw.data['live'] == true) {
-          // Real gateway would need a WebView redirect — handled on web for now.
-          await api.mockConfirm(bookingId);
+        final data = (gw.data as Map).cast<String, dynamic>();
+        if (data['live'] == true && data['postUrl'] != null) {
+          // Real gateway: open the hosted checkout in a WebView. The backend's
+          // return handler confirms the booking, so a `true` result = paid.
+          final fields = (data['fields'] as Map).map((k, v) => MapEntry(k.toString(), v.toString()));
+          if (!mounted) return;
+          final ok = await Navigator.push<bool>(context, MaterialPageRoute(
+            builder: (_) => GatewayWebViewScreen(postUrl: data['postUrl'] as String, fields: fields),
+          ));
+          if (ok != true) throw Exception('Payment was not completed');
         } else {
+          // Sandbox (no live creds yet): settle via mock-confirm.
           await api.mockConfirm(bookingId);
         }
       }

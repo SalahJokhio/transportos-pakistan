@@ -1,0 +1,157 @@
+'use client';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { analyticsApi, aiApi } from '@/lib/api/endpoints';
+import { operatorApi } from '@/lib/api/operator';
+import { useAuthStore } from '@/store/auth.store';
+import { OperatorNav } from '@/components/operator/OperatorNav';
+import { TrendingUp, MapPin, CreditCard, Sparkles, Loader2 } from 'lucide-react';
+
+const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
+
+export default function AnalyticsPage() {
+  const { user } = useAuthStore();
+  // Operators see their own numbers; SUPER_ADMIN sees the whole platform.
+  const companyId = user && user.role !== 'SUPER_ADMIN' ? user.id : undefined;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['analytics-overview', companyId],
+    queryFn: () => analyticsApi.overview(companyId),
+  });
+
+  if (isLoading) return <><OperatorNav /><div className="py-16 text-center text-slate-400">Loading analytics…</div></>;
+  if (error) return <><OperatorNav /><div className="py-16 text-center text-red-500">Log in to view analytics.</div></>;
+
+  const t = data?.totals ?? {};
+  const trend: any[] = data?.revenueByDay ?? [];
+  const maxRev = Math.max(1, ...trend.map((d) => d.revenue));
+  const topRoutes: any[] = data?.topRoutes ?? [];
+  const paymentMix: any[] = data?.paymentMix ?? [];
+
+  return (
+    <>
+      <OperatorNav />
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Analytics</h1>
+          <p className="text-slate-500 text-sm">{companyId ? 'Your operation' : 'Platform-wide'} performance.</p>
+        </div>
+
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            ['Revenue', rs(t.revenue)],
+            ['Confirmed', t.confirmed ?? 0],
+            ['Cancelled', t.cancelled ?? 0],
+            ['Cancel rate', `${Math.round((t.cancelRate ?? 0) * 100)}%`],
+          ].map(([label, val]) => (
+            <div key={label as string} className="bg-white rounded-xl border p-4">
+              <div className="text-xs text-slate-500">{label as string}</div>
+              <div className="text-lg font-bold text-slate-800">{val as any}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Revenue trend (last 14 days) */}
+        <div className="bg-white rounded-xl border p-5">
+          <div className="flex items-center gap-2 font-semibold text-slate-800 mb-4"><TrendingUp size={16} /> Revenue — last 14 days</div>
+          {trend.length === 0 ? (
+            <div className="text-slate-400 text-sm py-6 text-center">No confirmed bookings yet.</div>
+          ) : (
+            <div className="flex items-end gap-1 h-40">
+              {trend.map((d) => (
+                <div key={d.day} className="flex-1 flex flex-col items-center justify-end group">
+                  <div className="w-full bg-orange-500/80 rounded-t hover:bg-orange-600 transition-all"
+                    style={{ height: `${(d.revenue / maxRev) * 100}%` }} title={`${d.day}: ${rs(d.revenue)}`} />
+                  <span className="text-[9px] text-slate-400 mt-1 rotate-45 origin-left whitespace-nowrap">{d.day.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Top routes */}
+          <div className="bg-white rounded-xl border p-5">
+            <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><MapPin size={16} /> Top routes</div>
+            {topRoutes.length === 0 ? <div className="text-slate-400 text-sm">No data.</div> : topRoutes.map((r, i) => (
+              <div key={i} className="flex justify-between py-2 border-b last:border-0 text-sm">
+                <span>{r.origin} → {r.destination}</span>
+                <span className="font-semibold text-orange-600">{rs(r.revenue)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Payment mix */}
+          <div className="bg-white rounded-xl border p-5">
+            <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><CreditCard size={16} /> Payment mix</div>
+            {paymentMix.length === 0 ? <div className="text-slate-400 text-sm">No payments yet.</div> : paymentMix.map((p, i) => (
+              <div key={i} className="flex justify-between py-2 border-b last:border-0 text-sm capitalize">
+                <span>{p.provider} <span className="text-slate-400">({p.count})</span></span>
+                <span className="font-semibold">{rs(p.total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <DynamicPricing />
+      </div>
+    </>
+  );
+}
+
+/** AI dynamic-pricing tool: list the operator's upcoming trips and suggest a fare. */
+function DynamicPricing() {
+  const { data: trips } = useQuery({
+    queryKey: ['operator-trips-ai'],
+    queryFn: () => (operatorApi as any).trips?.() ?? Promise.resolve([]),
+  });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [sugg, setSugg] = useState<Record<string, any>>({});
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const suggest = async (tripId: string) => {
+    setOpenId(tripId);
+    if (sugg[tripId]) return;
+    setLoadingId(tripId);
+    try {
+      const r = await aiApi.priceSuggestion(tripId);
+      setSugg((s) => ({ ...s, [tripId]: r }));
+    } catch { /* ignore */ } finally { setLoadingId(null); }
+  };
+
+  const list: any[] = Array.isArray(trips) ? trips : (trips?.data ?? []);
+  if (list.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border p-5">
+      <div className="flex items-center gap-2 font-semibold text-slate-800 mb-1"><Sparkles size={16} className="text-orange-600" /> Dynamic pricing (AI)</div>
+      <p className="text-xs text-slate-500 mb-4">Demand-based fare suggestions from occupancy, lead time and departure slot. Advisory only.</p>
+      {list.slice(0, 8).map((t: any) => {
+        const s = sugg[t.id];
+        return (
+          <div key={t.id} className="border-b last:border-0 py-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <span className="font-medium">Base {rs(t.basePrice)}</span>
+                <span className="text-slate-400 ml-2">{(t.departureTime || '').slice(0, 16).replace('T', ' ')}</span>
+              </div>
+              <button onClick={() => suggest(t.id)} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded flex items-center gap-1">
+                {loadingId === t.id ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Suggest
+              </button>
+            </div>
+            {openId === t.id && s && (
+              <div className="mt-2 bg-orange-50 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-orange-700">{rs(s.suggestedPrice)}</span>
+                  <span className="text-xs text-slate-500">×{s.suggestedMultiplier} · {Math.round((s.occupancy ?? 0) * 100)}% full · {s.daysToDeparture}d out</span>
+                </div>
+                <div className="text-xs text-slate-500 mt-1">{s.reason}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

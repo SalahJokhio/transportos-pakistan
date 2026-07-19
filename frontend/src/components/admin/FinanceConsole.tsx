@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api/admin';
-import { Banknote, RefreshCw, CheckCircle, RotateCcw } from 'lucide-react';
+import { couponApi } from '@/lib/api/endpoints';
+import { Banknote, RefreshCw, CheckCircle, RotateCcw, Ticket, Plus } from 'lucide-react';
 
 const pkr = (n: number) => 'Rs ' + Number(n || 0).toLocaleString('en-PK');
 
@@ -13,7 +14,7 @@ const pkr = (n: number) => 'Rs ' + Number(n || 0).toLocaleString('en-PK');
  */
 export function FinanceConsole() {
   const qc = useQueryClient();
-  const [subTab, setSubTab] = useState<'settlements' | 'refunds'>('settlements');
+  const [subTab, setSubTab] = useState<'settlements' | 'refunds' | 'coupons'>('settlements');
 
   const { data: summary, isLoading: sumLoading } = useQuery({
     queryKey: ['admin-settlement-summary'],
@@ -42,12 +43,29 @@ export function FinanceConsole() {
     onSuccess: invalidate,
   });
 
+  const { data: coupons } = useQuery({ queryKey: ['admin-coupons'], queryFn: couponApi.list, enabled: subTab === 'coupons' });
+  const [cf, setCf] = useState({ code: '', type: 'PERCENT', value: '', maxDiscount: '', minAmount: '', usageLimit: '' });
+  const createCoupon = useMutation({
+    mutationFn: () => couponApi.create({
+      code: cf.code,
+      type: cf.type,
+      value: Number(cf.value),
+      maxDiscount: cf.maxDiscount ? Number(cf.maxDiscount) : undefined,
+      minAmount: cf.minAmount ? Number(cf.minAmount) : 0,
+      usageLimit: cf.usageLimit ? Number(cf.usageLimit) : undefined,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-coupons'] });
+      setCf({ code: '', type: 'PERCENT', value: '', maxDiscount: '', minAmount: '', usageLimit: '' });
+    },
+  });
+
   const totals = summary?.totals;
 
   return (
     <div>
       <div className="flex gap-2 mb-5">
-        {(['settlements', 'refunds'] as const).map((t) => (
+        {(['settlements', 'refunds', 'coupons'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
@@ -212,6 +230,64 @@ export function FinanceConsole() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {subTab === 'coupons' && (
+        <div className="space-y-6">
+          {/* Create coupon */}
+          <div className="card p-4">
+            <div className="flex items-center gap-2 font-semibold text-gray-800 mb-3"><Plus size={16} /> New coupon</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <input placeholder="CODE" value={cf.code} onChange={(e) => setCf({ ...cf, code: e.target.value.toUpperCase() })} className="border rounded px-3 py-2 text-sm uppercase" />
+              <select value={cf.type} onChange={(e) => setCf({ ...cf, type: e.target.value })} className="border rounded px-3 py-2 text-sm">
+                <option value="PERCENT">Percent %</option>
+                <option value="FLAT">Flat Rs</option>
+              </select>
+              <input placeholder={cf.type === 'PERCENT' ? 'e.g. 10 (%)' : 'e.g. 200 (Rs)'} value={cf.value} onChange={(e) => setCf({ ...cf, value: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+              <input placeholder="Max discount (Rs)" value={cf.maxDiscount} onChange={(e) => setCf({ ...cf, maxDiscount: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+              <input placeholder="Min spend (Rs)" value={cf.minAmount} onChange={(e) => setCf({ ...cf, minAmount: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+              <input placeholder="Usage limit" value={cf.usageLimit} onChange={(e) => setCf({ ...cf, usageLimit: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+            </div>
+            <button
+              onClick={() => cf.code && cf.value && createCoupon.mutate()}
+              disabled={createCoupon.isPending}
+              className="mt-3 bg-orange-600 text-white text-sm px-4 py-2 rounded disabled:opacity-40">
+              Create coupon
+            </button>
+          </div>
+
+          {/* Coupon list */}
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center gap-2 font-semibold text-gray-800"><Ticket size={16} /> Coupons</div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-left">
+                <tr>
+                  <th className="px-4 py-2">Code</th>
+                  <th className="px-4 py-2">Discount</th>
+                  <th className="px-4 py-2">Min spend</th>
+                  <th className="px-4 py-2">Used</th>
+                  <th className="px-4 py-2">Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(coupons ?? []).map((c: any) => (
+                  <tr key={c.id} className="border-t">
+                    <td className="px-4 py-2 font-mono font-semibold">{c.code}</td>
+                    <td className="px-4 py-2">{c.type === 'FLAT' ? `Rs ${c.value}` : `${c.value}%`}{c.maxDiscount ? ` (max Rs ${c.maxDiscount})` : ''}</td>
+                    <td className="px-4 py-2 text-gray-500">Rs {c.minAmount}</td>
+                    <td className="px-4 py-2">{c.usedCount}{c.usageLimit ? ` / ${c.usageLimit}` : ''}</td>
+                    <td className="px-4 py-2">
+                      <span className={`text-xs px-2 py-0.5 rounded ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{c.isActive ? 'Yes' : 'No'}</span>
+                    </td>
+                  </tr>
+                ))}
+                {(coupons ?? []).length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No coupons yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

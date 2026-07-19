@@ -6,6 +6,7 @@ import { ConflictException, BadRequestException } from '@nestjs/common';
 import { BookingService } from '../../src/services/booking.service';
 import { SeatLockService } from '../../src/services/seat-lock.service';
 import { PricingService } from '../../src/services/pricing.service';
+import { CouponService } from '../../src/services/coupon.service';
 import { Booking } from '../../src/entities/booking.entity';
 import { BookingSeat } from '../../src/entities/booking-seat.entity';
 import { BookingStatus } from '@app/common';
@@ -40,6 +41,7 @@ describe('BookingService (guard branches)', () => {
       providers: [
         BookingService,
         PricingService,
+        { provide: CouponService, useValue: { validate: jest.fn().mockResolvedValue({ valid: false, discount: 0 }), redeem: jest.fn() } },
         { provide: SeatLockService, useValue: seatLock },
         { provide: NotificationService, useValue: { sendBookingConfirmation: jest.fn(), sendCancellationNotice: jest.fn() } },
         { provide: DataSource, useValue: dataSource },

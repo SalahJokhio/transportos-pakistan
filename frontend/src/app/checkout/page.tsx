@@ -2,7 +2,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
-import { bookingApi, paymentApi, tripApi } from '@/lib/api/endpoints';
+import { bookingApi, paymentApi, tripApi, couponApi } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
@@ -35,7 +35,19 @@ export default function CheckoutPage() {
   const basePrice = trip?.basePrice || 0;
   const subtotal = basePrice * seats.length;
   const gst = Math.round(subtotal * 0.16);
-  const total = subtotal + gst;
+  const [promo, setPromo] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [promoMsg, setPromoMsg] = useState('');
+  const total = Math.max(0, subtotal + gst - discount);
+
+  const applyPromo = async () => {
+    setPromoMsg('');
+    try {
+      const res: any = await couponApi.validate(promo, subtotal + gst);
+      if (res?.valid) { setDiscount(res.discount); setPromoMsg(`− Rs ${res.discount} applied`); }
+      else { setDiscount(0); setPromoMsg(res?.message || 'Invalid code'); }
+    } catch { setDiscount(0); setPromoMsg('Could not validate code'); }
+  };
 
   const updatePassenger = (i: number, field: string, value: string) => {
     setPassengers((prev) => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
@@ -53,6 +65,7 @@ export default function CheckoutPage() {
         tripId,
         seatNumbers: seats,
         passengerDetails: passengers,
+        promoCode: discount > 0 ? promo : undefined,
       });
 
       if (paymentMethod === 'wallet') {
@@ -185,6 +198,26 @@ export default function CheckoutPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500">GST (16%)</span>
                 <span>Rs {gst.toLocaleString()}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Promo discount</span>
+                  <span>− Rs {discount.toLocaleString()}</span>
+                </div>
+              )}
+              {/* Promo code */}
+              <div className="pt-2">
+                <div className="flex gap-2">
+                  <input
+                    value={promo}
+                    onChange={(e) => setPromo(e.target.value.toUpperCase())}
+                    placeholder="Promo code"
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm uppercase"
+                  />
+                  <button type="button" onClick={applyPromo}
+                    className="px-3 py-2 text-sm font-medium bg-slate-100 rounded-lg hover:bg-slate-200">Apply</button>
+                </div>
+                {promoMsg && <div className={`text-xs mt-1 ${discount > 0 ? 'text-green-600' : 'text-red-500'}`}>{promoMsg}</div>}
               </div>
               <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between font-bold text-base">
                 <span>Total</span>

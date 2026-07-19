@@ -10,6 +10,8 @@ import { BookingModule } from '../../booking-service/src/booking.module';
 import { TrackingModule } from '../../tracking-service/src/tracking.module';
 import { PaymentModule } from '../../payment-service/src/payment.module';
 import { NotificationModule } from '../../notification-service/src/notification.module';
+import { AiModule } from '../../ai-service/src/ai.module';
+import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -24,6 +26,8 @@ import { UploadController } from './upload.controller';
     TrackingModule,
     PaymentModule,
     NotificationModule,
+    AiModule,
+    AnalyticsModule,
   ],
   controllers: [HealthController, UploadController],
 })

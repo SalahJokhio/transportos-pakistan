@@ -4,11 +4,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from '@app/database';
 import { Booking } from './entities/booking.entity';
 import { BookingSeat } from './entities/booking-seat.entity';
+import { Coupon } from './entities/coupon.entity';
 import { BookingService } from './services/booking.service';
 import { PricingService } from './services/pricing.service';
 import { SeatLockService } from './services/seat-lock.service';
 import { TicketService } from './services/ticket.service';
+import { CouponService } from './services/coupon.service';
 import { BookingController } from './booking.controller';
+import { CouponController } from './coupon.controller';
 
 // Shared DB entities for loyalty auto-earn, seat release and ticket details
 import { User } from '../../user-service/src/entities/user.entity';
@@ -22,11 +25,11 @@ import { NotificationModule } from '../../notification-service/src/notification.
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([Booking, BookingSeat, User, LoyaltyTransaction, Trip, Route, Bus]),
+    TypeOrmModule.forFeature([Booking, BookingSeat, Coupon, User, LoyaltyTransaction, Trip, Route, Bus]),
     NotificationModule, // SMS on confirm / cancel
   ],
-  controllers: [BookingController],
-  providers: [BookingService, PricingService, SeatLockService, TicketService, ConfigService],
+  controllers: [BookingController, CouponController],
+  providers: [BookingService, PricingService, SeatLockService, TicketService, CouponService, ConfigService],
   exports: [BookingService], // consumed by PaymentModule to confirm bookings
 })
 export class BookingModule {}

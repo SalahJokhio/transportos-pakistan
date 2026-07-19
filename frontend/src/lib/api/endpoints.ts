@@ -53,6 +53,20 @@ export const paymentApi = {
     post(`/payments/${paymentId}/refund`, data),
 };
 
+export const analyticsApi = {
+  overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
+};
+
+export const aiApi = {
+  priceSuggestion: (tripId: string) => get(`/ai/price-suggestion/${tripId}`),
+};
+
+export const couponApi = {
+  validate: (code: string, amount: number) => post('/coupons/validate', { code, amount }),
+  list: () => get('/coupons'),
+  create: (data: any) => post('/coupons', data),
+};
+
 export const walletApi = {
   get: () => get('/wallet'),
   topup: (amount: number) => post('/wallet/topup', { amount }),

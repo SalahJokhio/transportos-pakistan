@@ -2,7 +2,7 @@ import { Controller, Post, Body, Get, All, Param, Query, Request, Res, UseGuards
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtAuthGuard, Roles } from './guards/jwt-auth.guard';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -49,6 +49,7 @@ export class PaymentController {
 
   @Post(':id/refund')
   @UseGuards(JwtAuthGuard)
+  @Roles('SUPER_ADMIN', 'FINANCE_OFFICER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Refund a payment (full or partial) — wallet or gateway' })
   refund(@Param('id') id: string, @Body() body: { amount?: number; reason?: string }) {
@@ -57,6 +58,7 @@ export class PaymentController {
 
   @Post('reconcile')
   @UseGuards(JwtAuthGuard)
+  @Roles('SUPER_ADMIN', 'FINANCE_OFFICER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reconcile stuck PENDING/PROCESSING payments against the gateway' })
   reconcile(@Body() body: { olderThanMinutes?: number }) {
