@@ -3,6 +3,7 @@ import '../styles/globals.css';
 import 'leaflet/dist/leaflet.css';
 import { Providers } from './providers';
 import { Navbar } from '@/components/layout/Navbar';
+import { ChatWidget } from '@/components/ChatWidget';
 
 export const metadata: Metadata = {
   title: 'TransportOS — Pakistan Bus Booking',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Navbar />
           <main>{children}</main>
+          <ChatWidget />
         </Providers>
       </body>
     </html>

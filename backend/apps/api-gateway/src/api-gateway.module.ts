@@ -12,6 +12,7 @@ import { PaymentModule } from '../../payment-service/src/payment.module';
 import { NotificationModule } from '../../notification-service/src/notification.module';
 import { AiModule } from '../../ai-service/src/ai.module';
 import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
+import { AssistantModule } from '../../assistant-service/src/assistant.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -28,6 +29,7 @@ import { UploadController } from './upload.controller';
     NotificationModule,
     AiModule,
     AnalyticsModule,
+    AssistantModule,
   ],
   controllers: [HealthController, UploadController],
 })

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../data/api_client.dart';
@@ -68,6 +69,8 @@ class _TicketScreenState extends State<TicketScreen> {
                           const SizedBox(height: 4),
                           Text(widget.pnr,
                               style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 3, color: AppColors.navy)),
+                          const SizedBox(height: 16),
+                          _qr(b?['qrCode'] as String?),
                           const Divider(height: 32),
                           _row('Status', (b?['status'] ?? '').toString()),
                           _row('Seats', seats),
@@ -83,6 +86,18 @@ class _TicketScreenState extends State<TicketScreen> {
               ),
             ),
     );
+  }
+
+  /// The server returns the QR as a `data:image/png;base64,…` URL — decode and
+  /// render it so the conductor can scan it at boarding.
+  Widget _qr(String? dataUrl) {
+    if (dataUrl == null || !dataUrl.contains(',')) return const SizedBox.shrink();
+    try {
+      final bytes = base64Decode(dataUrl.split(',').last);
+      return Image.memory(bytes, width: 180, height: 180);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _row(String k, String v) => Padding(

@@ -57,6 +57,10 @@ export const analyticsApi = {
   overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
 };
 
+export const assistantApi = {
+  chat: (message: string, history: any[] = []) => post('/assistant/chat', { message, history }),
+};
+
 export const trackingApi = {
   live: () => get('/tracking/live'),
   eta: (tripId: string) => get(`/tracking/${tripId}/eta`),
