@@ -81,6 +81,13 @@ export const adminApi = {
   getBroadcasts: () => api.get(`${BASE}/broadcasts`).then((r) => r.data),
   segmentSize: (segment: string) => api.get(`${BASE}/broadcasts/segment-size`, { params: { segment } }).then((r) => r.data),
   sendBroadcast: (data: any) => api.post(`${BASE}/broadcasts`, data).then((r) => r.data),
+
+  // Support / ticketing
+  getTickets: (status?: string) => api.get(`${BASE}/support`, { params: status ? { status } : {} }).then((r) => r.data),
+  getTicket: (id: string) => api.get(`${BASE}/support/${id}`).then((r) => r.data),
+  replyTicket: (id: string, body: string, isInternal = false) => api.post(`${BASE}/support/${id}/reply`, { body, isInternal }).then((r) => r.data),
+  updateTicket: (id: string, data: any) => api.patch(`${BASE}/support/${id}`, data).then((r) => r.data),
+  getCannedReplies: () => api.get(`${BASE}/support/canned`).then((r) => r.data),
 };
 
 export const disputesApi = {

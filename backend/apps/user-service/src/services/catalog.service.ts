@@ -79,6 +79,20 @@ export class CatalogService {
     return value;
   }
 
+  // ---- Support canned replies ------------------------------------------
+  async getCannedReplies() {
+    const row = await this.settingRepo.findOne({ where: { key: 'support.canned' } });
+    return row?.value ?? [
+      { title: 'Greeting', body: 'Thank you for contacting TransportOS support. How can we help?' },
+      { title: 'Refund in progress', body: 'Your refund has been processed and will reflect in 3-5 working days.' },
+      { title: 'Resolved', body: 'This issue is now resolved. Please reach out if you need anything else.' },
+    ];
+  }
+  async setCannedReplies(replies: Array<{ title: string; body: string }>) {
+    await this.upsertSetting('support.canned', replies);
+    return replies;
+  }
+
   // ---- RBAC permission matrix ------------------------------------------
   async getRbac() {
     const row = await this.settingRepo.findOne({ where: { key: RBAC_KEY } });

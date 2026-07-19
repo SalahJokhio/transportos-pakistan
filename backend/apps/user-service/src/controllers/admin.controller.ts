@@ -7,6 +7,7 @@ import { CatalogService } from '../services/catalog.service';
 import { ComplianceService } from '../services/compliance.service';
 import { AuditService, AuditInterceptor } from '../services/audit.service';
 import { BroadcastService } from '../services/broadcast.service';
+import { SupportService } from '../services/support.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -28,8 +29,46 @@ export class AdminController {
     private readonly complianceService: ComplianceService,
     private readonly auditService: AuditService,
     private readonly broadcastService: BroadcastService,
+    private readonly supportService: SupportService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Support / ticketing ----------------------------------------------
+
+  @Get('support')
+  @ApiOperation({ summary: 'Support tickets with SLA state' })
+  supportList(@Query('status') status?: string) {
+    return this.supportService.list(status);
+  }
+
+  @Get('support/canned')
+  @ApiOperation({ summary: 'Canned reply templates' })
+  supportCanned() {
+    return this.catalogService.getCannedReplies();
+  }
+
+  @Put('support/canned')
+  setSupportCanned(@Body() body: { replies: Array<{ title: string; body: string }> }) {
+    return this.catalogService.setCannedReplies(body.replies);
+  }
+
+  @Get('support/:id')
+  @ApiOperation({ summary: 'A ticket with its message thread' })
+  supportGet(@Param('id') id: string) {
+    return this.supportService.get(id);
+  }
+
+  @Post('support/:id/reply')
+  @ApiOperation({ summary: 'Reply to a ticket (public reply or internal note)' })
+  supportReply(@Param('id') id: string, @Body() body: { body: string; isInternal?: boolean }, @Request() req) {
+    return this.supportService.reply(id, body.body, { id: req.user?.sub, role: req.user?.role }, body.isInternal);
+  }
+
+  @Patch('support/:id')
+  @ApiOperation({ summary: 'Update ticket status / priority / assignment' })
+  supportUpdate(@Param('id') id: string, @Body() body: any) {
+    return this.supportService.update(id, body);
+  }
 
   // ---- Broadcast center -------------------------------------------------
 

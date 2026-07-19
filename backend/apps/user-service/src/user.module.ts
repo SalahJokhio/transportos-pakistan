@@ -35,6 +35,9 @@ import { AuditLog } from './entities/audit-log.entity';
 import { AuditService, AuditInterceptor } from './services/audit.service';
 import { Broadcast } from './entities/broadcast.entity';
 import { BroadcastService } from './services/broadcast.service';
+import { SupportTicket, SupportMessage } from './entities/support-ticket.entity';
+import { SupportService } from './services/support.service';
+import { SupportController } from './controllers/support.controller';
 import { NotificationModule } from '../../notification-service/src/notification.module';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
@@ -54,10 +57,10 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
       }),
     }),
     NotificationModule, // broadcast SMS/WhatsApp sender
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast, SupportTicket, SupportMessage]),
   ],
-  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController, SupportController],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, SupportService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
   exports: [WalletService, CompanyService],
 })
 export class UserModule {}
