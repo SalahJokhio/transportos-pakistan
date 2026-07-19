@@ -6,6 +6,21 @@ import { City, Banner, PlatformSetting } from '../entities/catalog.entity';
 const FARE_RULES_KEY = 'fare.rules';
 const DEFAULT_FARE_RULES = { minFare: 200, maxFare: 15000, maxSurge: 1.6 };
 
+const RBAC_KEY = 'rbac.matrix';
+// The capabilities that make up the permission matrix.
+export const CAPABILITIES = [
+  'manage_users', 'manage_companies', 'manage_catalog', 'manage_compliance',
+  'process_refunds', 'manage_settlements', 'manage_coupons', 'send_broadcasts',
+  'view_analytics', 'manage_support',
+];
+// Sensible default role → capability grants.
+const DEFAULT_RBAC: Record<string, string[]> = {
+  SUPER_ADMIN: [...CAPABILITIES],
+  FINANCE_OFFICER: ['process_refunds', 'manage_settlements', 'manage_coupons', 'view_analytics'],
+  COMPANY_ADMIN: ['manage_compliance', 'view_analytics', 'manage_coupons'],
+  CALL_CENTER_AGENT: ['manage_support'],
+};
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -60,9 +75,23 @@ export class CatalogService {
   async setFareRules(dto: { minFare?: number; maxFare?: number; maxSurge?: number }) {
     const current = await this.getFareRules();
     const value = { ...current, ...dto };
-    const row = await this.settingRepo.findOne({ where: { key: FARE_RULES_KEY } });
-    if (row) await this.settingRepo.update(row.id, { value });
-    else await this.settingRepo.save(this.settingRepo.create({ key: FARE_RULES_KEY, value }));
+    await this.upsertSetting(FARE_RULES_KEY, value);
     return value;
+  }
+
+  // ---- RBAC permission matrix ------------------------------------------
+  async getRbac() {
+    const row = await this.settingRepo.findOne({ where: { key: RBAC_KEY } });
+    return { capabilities: CAPABILITIES, matrix: row?.value ?? DEFAULT_RBAC };
+  }
+  async setRbac(matrix: Record<string, string[]>) {
+    await this.upsertSetting(RBAC_KEY, matrix);
+    return { capabilities: CAPABILITIES, matrix };
+  }
+
+  private async upsertSetting(key: string, value: any) {
+    const row = await this.settingRepo.findOne({ where: { key } });
+    if (row) await this.settingRepo.update(row.id, { value });
+    else await this.settingRepo.save(this.settingRepo.create({ key, value }));
   }
 }

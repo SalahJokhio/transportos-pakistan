@@ -7,13 +7,14 @@ import { FinanceConsole } from '@/components/admin/FinanceConsole';
 import { CompaniesConsole } from '@/components/admin/CompaniesConsole';
 import { CatalogConsole } from '@/components/admin/CatalogConsole';
 import { ComplianceConsole } from '@/components/admin/ComplianceConsole';
+import { AccessConsole } from '@/components/admin/AccessConsole';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
   ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'revenue' | 'settlements' | 'disputes';
+type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'revenue' | 'settlements' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -129,7 +130,7 @@ export default function AdminDashboardPage() {
         {/* Tabs */}
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1 border-t">
-            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
+            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -507,6 +508,9 @@ export default function AdminDashboardPage() {
 
         {/* ── COMPLIANCE / KYC TAB ── */}
         {activeTab === 'compliance' && <ComplianceConsole />}
+
+        {/* ── ACCESS (audit + RBAC) TAB ── */}
+        {activeTab === 'access' && <AccessConsole />}
 
         {/* ── SETTLEMENTS / REFUNDS TAB ── */}
         {activeTab === 'settlements' && <FinanceConsole />}

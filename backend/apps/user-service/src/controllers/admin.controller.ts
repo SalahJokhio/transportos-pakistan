@@ -1,10 +1,11 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
 import { CompanyService } from '../services/company.service';
 import { CatalogService } from '../services/catalog.service';
 import { ComplianceService } from '../services/compliance.service';
+import { AuditService, AuditInterceptor } from '../services/audit.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -14,6 +15,7 @@ import { UserRole } from '@app/common';
 @ApiTags('Admin')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @Roles(UserRole.SUPER_ADMIN)
 @Controller('admin')
 export class AdminController {
@@ -23,8 +25,29 @@ export class AdminController {
     private readonly companyService: CompanyService,
     private readonly catalogService: CatalogService,
     private readonly complianceService: ComplianceService,
+    private readonly auditService: AuditService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Audit log + RBAC editor ------------------------------------------
+
+  @Get('audit-logs')
+  @ApiOperation({ summary: 'Recent admin actions (audit trail)' })
+  auditLogs(@Query('limit') limit?: string) {
+    return this.auditService.list(limit ? Number(limit) : 100);
+  }
+
+  @Get('rbac')
+  @ApiOperation({ summary: 'Role → capability permission matrix' })
+  getRbac() {
+    return this.catalogService.getRbac();
+  }
+
+  @Put('rbac')
+  @ApiOperation({ summary: 'Update the permission matrix' })
+  setRbac(@Body() body: { matrix: Record<string, string[]> }) {
+    return this.catalogService.setRbac(body.matrix);
+  }
 
   // ---- Compliance / KYC -------------------------------------------------
 

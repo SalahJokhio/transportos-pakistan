@@ -31,6 +31,8 @@ import { CatalogService } from './services/catalog.service';
 import { CatalogController } from './controllers/catalog.controller';
 import { ComplianceDocument } from './entities/compliance-document.entity';
 import { ComplianceService } from './services/compliance.service';
+import { AuditLog } from './entities/audit-log.entity';
+import { AuditService, AuditInterceptor } from './services/audit.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { Payment } from '../../payment-service/src/entities/payment.entity';
 import { Bus } from '../../fleet-service/src/entities/bus.entity';
@@ -48,10 +50,10 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog]),
   ],
   controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, LoyaltyService, WalletService, DisputeService, JwtStrategy],
   exports: [WalletService, CompanyService],
 })
 export class UserModule {}

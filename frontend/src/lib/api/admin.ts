@@ -71,6 +71,11 @@ export const adminApi = {
   verifyComplianceDoc: (id: string, status: string, notes?: string) =>
     api.patch(`${BASE}/compliance/${id}/verify`, { status, notes }).then((r) => r.data),
   deleteComplianceDoc: (id: string) => api.delete(`${BASE}/compliance/${id}`).then((r) => r.data),
+
+  // Audit log + RBAC
+  getAuditLogs: (limit = 100) => api.get(`${BASE}/audit-logs`, { params: { limit } }).then((r) => r.data),
+  getRbac: () => api.get(`${BASE}/rbac`).then((r) => r.data),
+  setRbac: (matrix: Record<string, string[]>) => api.put(`${BASE}/rbac`, { matrix }).then((r) => r.data),
 };
 
 export const disputesApi = {
