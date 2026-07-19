@@ -13,6 +13,12 @@ export class AnalyticsController {
     return this.analytics.overview(companyId);
   }
 
+  @Get('no-show')
+  @ApiOperation({ summary: 'Per-route no-show rate + suggested overbooking % (#9)' })
+  noShow(@Query('companyId') companyId?: string) {
+    return this.analytics.noShow(companyId);
+  }
+
   @Get('funnel')
   @ApiOperation({ summary: 'Booking funnel drop-off (search → seat → pay-start → paid)' })
   funnel(@Query('days') days?: string) {

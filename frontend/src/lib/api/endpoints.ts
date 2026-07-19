@@ -56,6 +56,8 @@ export const paymentApi = {
 export const analyticsApi = {
   overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
   funnel: (days = 14) => get('/analytics/funnel', { params: { days } }),
+  noShow: (companyId?: string) => get('/analytics/no-show', companyId ? { params: { companyId } } : undefined),
+  scheduleConflicts: () => get('/operator/schedule/conflicts'),
   forecast: (companyId?: string) => get('/analytics/forecast', companyId ? { params: { companyId } } : undefined),
   driverScorecards: (companyId?: string) => get('/analytics/driver-scorecards', companyId ? { params: { companyId } } : undefined),
 };

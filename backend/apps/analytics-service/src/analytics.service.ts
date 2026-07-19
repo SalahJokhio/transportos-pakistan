@@ -113,6 +113,37 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * No-show rate per route: CONFIRMED bookings on departed trips that were never
+   * boarded (boardedAt IS NULL). Drives a suggested overbooking % so operators
+   * can safely oversell seats they expect to go empty.
+   */
+  async noShow(companyId?: string) {
+    const rows = await this.bookingRepo.query(
+      `SELECT r.name AS route, r."originCity" AS origin, r."destinationCity" AS destination,
+              COUNT(b.id) FILTER (WHERE b.status='CONFIRMED')::int AS confirmed,
+              COUNT(b.id) FILTER (WHERE b.status='CONFIRMED' AND b."boardedAt" IS NULL)::int AS no_show
+       FROM trips t
+       JOIN routes r ON r.id::text = t."routeId"
+       JOIN bookings b ON b."tripId" = t.id::text
+       WHERE t."departureTime" < now() ${companyId ? `AND t."companyId" = $1` : ``}
+       GROUP BY r.name, r."originCity", r."destinationCity"
+       HAVING COUNT(b.id) FILTER (WHERE b.status='CONFIRMED') > 0
+       ORDER BY no_show DESC LIMIT 15`,
+      companyId ? [companyId] : [],
+    );
+    return {
+      routes: rows.map((r: any) => {
+        const confirmed = Number(r.confirmed);
+        const noShow = Number(r.no_show);
+        const rate = confirmed ? noShow / confirmed : 0;
+        // Suggest overselling ~70% of the observed no-show rate, capped at 20%.
+        const suggestedOverbookPct = Math.min(20, Math.round(rate * 70));
+        return { route: r.route, origin: r.origin, destination: r.destination, confirmed, noShow, noShowRate: Math.round(rate * 100), suggestedOverbookPct };
+      }),
+    };
+  }
+
   /** Booking funnel: counts per stage + conversion from search → paid. */
   async funnel(days = 14) {
     const rows = await this.bookingRepo.query(

@@ -5,7 +5,7 @@ import { analyticsApi, aiApi } from '@/lib/api/endpoints';
 import { operatorApi } from '@/lib/api/operator';
 import { useAuthStore } from '@/store/auth.store';
 import { OperatorNav } from '@/components/operator/OperatorNav';
-import { TrendingUp, MapPin, CreditCard, Sparkles, Loader2 } from 'lucide-react';
+import { TrendingUp, MapPin, CreditCard, Sparkles, Loader2, Clock } from 'lucide-react';
 
 const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -95,6 +95,7 @@ export default function AnalyticsPage() {
         </div>
 
         <BookingFunnel />
+        <NoShowAndConflicts companyId={companyId} />
         <ForecastAndScorecards companyId={companyId} />
         <DynamicPricing />
       </div>
@@ -125,6 +126,43 @@ function BookingFunnel() {
           </div>
         ))}
         {stages.every((s) => s.count === 0) && <div className="text-slate-400 text-sm py-2">No funnel data yet — book a ticket to populate.</div>}
+      </div>
+    </div>
+  );
+}
+
+/** #9 no-show rate → suggested overbooking + #10 schedule conflicts. */
+function NoShowAndConflicts({ companyId }: { companyId?: string }) {
+  const { data: ns } = useQuery({ queryKey: ['analytics-noshow', companyId], queryFn: () => analyticsApi.noShow(companyId) });
+  const { data: conf } = useQuery({ queryKey: ['schedule-conflicts'], queryFn: () => analyticsApi.scheduleConflicts(), retry: false });
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="card p-4">
+        <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><MapPin size={16} /> No-show & overbooking</div>
+        <table className="w-full text-sm">
+          <thead className="text-slate-400 text-left text-xs"><tr><th className="py-1">Route</th><th>No-show</th><th>Rate</th><th>Suggest oversell</th></tr></thead>
+          <tbody>
+            {(ns?.routes ?? []).map((r: any, i: number) => (
+              <tr key={i} className="border-t"><td className="py-1.5">{r.origin} → {r.destination}</td><td>{r.noShow}/{r.confirmed}</td><td>{r.noShowRate}%</td><td className="font-semibold text-orange-600">+{r.suggestedOverbookPct}%</td></tr>
+            ))}
+            {(ns?.routes ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-slate-400">No departed-trip data yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="card p-4">
+        <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><Clock size={16} /> Schedule conflicts</div>
+        {(conf?.total ?? 0) === 0 ? (
+          <div className="text-sm text-green-600 py-2">✓ No bus/driver double-bookings.</div>
+        ) : (
+          <div className="space-y-1 text-sm">
+            {[...(conf?.busConflicts ?? []).map((c: any) => ({ ...c, kind: 'Bus' })), ...(conf?.driverConflicts ?? []).map((c: any) => ({ ...c, kind: 'Driver' }))].map((c: any, i: number) => (
+              <div key={i} className="flex items-center justify-between border-b last:border-0 py-1.5">
+                <span className="text-red-600 font-medium">{c.kind} clash</span>
+                <span className="text-xs text-slate-400">{new Date(c.aDep).toLocaleString()} ↔ {new Date(c.bDep).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

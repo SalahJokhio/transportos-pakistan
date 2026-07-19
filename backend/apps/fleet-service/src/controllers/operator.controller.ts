@@ -99,6 +99,12 @@ export class OperatorController {
     return this.tripService.assignDriver(tripId, body.driverId, req.user?.companyId || req.user?.sub);
   }
 
+  @Get('schedule/conflicts')
+  @ApiOperation({ summary: 'Bus/driver double-booking conflicts (#10 scheduling)' })
+  scheduleConflicts(@Request() req) {
+    return this.fleetAnalyticsService.scheduleConflicts(req.user?.companyId || req.user?.sub);
+  }
+
   @Get('fleet-report')
   @ApiOperation({ summary: 'Per-bus profit/loss: revenue − expenses, best/worst performer' })
   fleetReport(@Request() req) {
