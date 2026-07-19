@@ -20,10 +20,22 @@ export class TrackingController {
     return { received: true, tripId: body.tripId, timestamp: new Date() };
   }
 
+  @Get('live')
+  @ApiOperation({ summary: 'Live ops map: latest position of every active bus' })
+  liveMap() {
+    return this.trackingService.getLiveMap();
+  }
+
   @Get(':tripId/history')
   @ApiOperation({ summary: 'GPS trail for a trip (replay / analytics)' })
   history(@Param('tripId') tripId: string, @Query('limit') limit?: string) {
     return this.trackingService.getHistory(tripId, limit ? Number(limit) : 500);
+  }
+
+  @Get(':tripId/eta')
+  @ApiOperation({ summary: 'Delay-adjusted ETA + trip progress' })
+  eta(@Param('tripId') tripId: string) {
+    return this.trackingService.getEta(tripId);
   }
 
   @Get(':tripId/location')

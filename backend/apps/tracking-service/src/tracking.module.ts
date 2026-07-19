@@ -6,12 +6,13 @@ import { TrackingGateway } from './tracking.gateway';
 import { TrackingController } from './tracking.controller';
 import { TrackingService } from './services/tracking.service';
 import { GpsLog } from './entities/gps-log.entity';
+import { Trip } from '../../fleet-service/src/entities/trip.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([GpsLog]),
+    TypeOrmModule.forFeature([GpsLog, Trip]),
   ],
   controllers: [TrackingController],
   providers: [TrackingGateway, TrackingService],

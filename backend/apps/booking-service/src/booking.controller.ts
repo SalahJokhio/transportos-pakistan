@@ -25,6 +25,12 @@ export class BookingController {
     return this.ticketService.getTicket(pnr);
   }
 
+  @Post(':tripId/notify-arrival')
+  @ApiOperation({ summary: 'Geofenced arrival: SMS all confirmed passengers on a trip' })
+  notifyArrival(@Param('tripId') tripId: string) {
+    return this.bookingService.notifyArrival(tripId);
+  }
+
   @Get('verify/:pnr')
   @ApiOperation({ summary: 'Conductor-side ticket verification (PNR + signature)' })
   verify(@Param('pnr') pnr: string, @Query('sig') sig: string) {

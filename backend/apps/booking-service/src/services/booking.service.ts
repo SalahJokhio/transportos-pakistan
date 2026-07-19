@@ -231,6 +231,26 @@ export class BookingService {
     return booking;
   }
 
+  /**
+   * Geofenced arrival alert: SMS every confirmed passenger on a trip that the
+   * bus is arriving. The geofence trigger fires from the driver app when it
+   * nears the destination; this fans the notice out to passengers.
+   */
+  async notifyArrival(tripId: string): Promise<{ tripId: string; notified: number }> {
+    const bookings = await this.bookingRepo.find({ where: { tripId, status: BookingStatus.CONFIRMED } });
+    let notified = 0;
+    for (const b of bookings) {
+      const user = await this.userRepo.findOne({ where: { id: b.passengerId } });
+      if (user?.phone) {
+        this.notificationService
+          .sendSms({ phone: user.phone, message: `TransportOS: Your bus (PNR ${b.pnr}) is arriving soon. Please be ready.` })
+          .catch(() => undefined);
+        notified++;
+      }
+    }
+    return { tripId, notified };
+  }
+
   async findById(id: string): Promise<Booking> {
     const booking = await this.bookingRepo.findOne({ where: { id } });
     if (!booking) throw new NotFoundException('Booking not found');

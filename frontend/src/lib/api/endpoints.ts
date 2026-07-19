@@ -57,6 +57,13 @@ export const analyticsApi = {
   overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
 };
 
+export const trackingApi = {
+  live: () => get('/tracking/live'),
+  eta: (tripId: string) => get(`/tracking/${tripId}/eta`),
+  history: (tripId: string) => get(`/tracking/${tripId}/history`),
+  notifyArrival: (tripId: string) => post(`/bookings/${tripId}/notify-arrival`),
+};
+
 export const aiApi = {
   priceSuggestion: (tripId: string) => get(`/ai/price-suggestion/${tripId}`),
 };
