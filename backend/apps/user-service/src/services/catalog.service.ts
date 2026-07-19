@@ -79,6 +79,17 @@ export class CatalogService {
     return value;
   }
 
+  // ---- Fraud rules ------------------------------------------------------
+  async getFraudRules() {
+    const row = await this.settingRepo.findOne({ where: { key: 'fraud.rules' } });
+    return { maxCancellations: 3, maxBookingsPerHour: 8, blockedPhones: [] as string[], enabled: true, ...(row?.value ?? {}) };
+  }
+  async setFraudRules(dto: any) {
+    const value = { ...(await this.getFraudRules()), ...dto };
+    await this.upsertSetting('fraud.rules', value);
+    return value;
+  }
+
   // ---- Support canned replies ------------------------------------------
   async getCannedReplies() {
     const row = await this.settingRepo.findOne({ where: { key: 'support.canned' } });

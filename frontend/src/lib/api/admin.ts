@@ -2,8 +2,17 @@ import { api } from './client';
 
 const BASE = '/admin';
 
+// The response interceptor already returns res.data at runtime, but axios types
+// it as AxiosResponse — cast so callers get the unwrapped payload as `any`
+// (same pattern as endpoints.ts).
+const g = (url: string, config?: any): Promise<any> => api.get(url, config) as unknown as Promise<any>;
+const p = (url: string, data?: any): Promise<any> => api.post(url, data) as unknown as Promise<any>;
+const pt = (url: string, data?: any): Promise<any> => api.put(url, data) as unknown as Promise<any>;
+const pc = (url: string, data?: any): Promise<any> => api.patch(url, data) as unknown as Promise<any>;
+const d = (url: string, config?: any): Promise<any> => api.delete(url, config) as unknown as Promise<any>;
+
 export const adminApi = {
-  getStats: () => api.get(`${BASE}/stats`).then((r) => r.data),
+  getStats: () => g(`${BASE}/stats`),
 
   listUsers: (params?: {
     page?: number;
@@ -11,87 +20,95 @@ export const adminApi = {
     role?: string;
     search?: string;
     isActive?: boolean;
-  }) => api.get(`${BASE}/users`, { params }).then((r) => r.data),
+  }) => g(`${BASE}/users`, { params }),
 
   updateRole: (id: string, role: string) =>
-    api.patch(`${BASE}/users/${id}/role`, { role }).then((r) => r.data),
+    pc(`${BASE}/users/${id}/role`, { role }),
 
-  activateUser: (id: string) => api.post(`${BASE}/users/${id}/activate`).then((r) => r.data),
-  deactivateUser: (id: string) => api.post(`${BASE}/users/${id}/deactivate`).then((r) => r.data),
+  activateUser: (id: string) => p(`${BASE}/users/${id}/activate`),
+  deactivateUser: (id: string) => p(`${BASE}/users/${id}/deactivate`),
 
-  getRevenue: () => api.get(`${BASE}/revenue`).then((r) => r.data),
+  getRevenue: () => g(`${BASE}/revenue`),
 
-  getOperators: () => api.get(`${BASE}/operators`).then((r) => r.data),
-  approveOperator: (id: string) => api.post(`${BASE}/operators/${id}/approve`).then((r) => r.data),
+  getOperators: () => g(`${BASE}/operators`),
+  approveOperator: (id: string) => p(`${BASE}/operators/${id}/approve`),
 
   // Disputes / fraud queue
   getDisputes: (status?: string) =>
-    api.get(`${BASE}/disputes`, { params: status ? { status } : {} }).then((r) => r.data),
+    g(`${BASE}/disputes`, { params: status ? { status } : {} }),
   resolveDispute: (id: string, status: string, resolution?: string) =>
-    api.patch(`${BASE}/disputes/${id}/resolve`, { status, resolution }).then((r) => r.data),
-  getFraudSignals: () => api.get(`${BASE}/fraud-signals`).then((r) => r.data),
+    pc(`${BASE}/disputes/${id}/resolve`, { status, resolution }),
+  getFraudSignals: () => g(`${BASE}/fraud-signals`),
 
   // Settlements (operator payouts)
-  getSettlementSummary: () => api.get(`${BASE}/settlements/summary`).then((r) => r.data),
+  getSettlementSummary: () => g(`${BASE}/settlements/summary`),
   listSettlements: (status?: string) =>
-    api.get(`${BASE}/settlements`, { params: status ? { status } : {} }).then((r) => r.data),
+    g(`${BASE}/settlements`, { params: status ? { status } : {} }),
   generateSettlement: (companyId: string) =>
-    api.post(`${BASE}/settlements/generate`, { companyId }).then((r) => r.data),
+    p(`${BASE}/settlements/generate`, { companyId }),
   paySettlement: (id: string, reference?: string) =>
-    api.post(`${BASE}/settlements/${id}/pay`, { reference }).then((r) => r.data),
+    p(`${BASE}/settlements/${id}/pay`, { reference }),
 
   // Payments & refunds
   listPayments: (limit?: number) =>
-    api.get(`${BASE}/payments`, { params: limit ? { limit } : {} }).then((r) => r.data),
+    g(`${BASE}/payments`, { params: limit ? { limit } : {} }),
   refundPayment: (id: string, amount?: number, reason?: string) =>
-    api.post(`${BASE}/payments/${id}/refund`, { amount, reason }).then((r) => r.data),
+    p(`${BASE}/payments/${id}/refund`, { amount, reason }),
 
   // Multi-tenant: companies
-  getCompanies: () => api.get(`${BASE}/companies`).then((r) => r.data),
+  getCompanies: () => g(`${BASE}/companies`),
   updateCompany: (companyId: string, data: any) =>
-    api.patch(`${BASE}/companies/${companyId}`, data).then((r) => r.data),
-  suspendCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/suspend`).then((r) => r.data),
-  activateCompany: (companyId: string) => api.post(`${BASE}/companies/${companyId}/activate`).then((r) => r.data),
+    pc(`${BASE}/companies/${companyId}`, data),
+  suspendCompany: (companyId: string) => p(`${BASE}/companies/${companyId}/suspend`),
+  activateCompany: (companyId: string) => p(`${BASE}/companies/${companyId}/activate`),
 
   // CMS / catalog
-  getCities: () => api.get(`${BASE}/catalog/cities`).then((r) => r.data),
-  addCity: (data: any) => api.post(`${BASE}/catalog/cities`, data).then((r) => r.data),
-  updateCity: (id: string, data: any) => api.patch(`${BASE}/catalog/cities/${id}`, data).then((r) => r.data),
-  deleteCity: (id: string) => api.delete(`${BASE}/catalog/cities/${id}`).then((r) => r.data),
-  getBanners: () => api.get(`${BASE}/catalog/banners`).then((r) => r.data),
-  addBanner: (data: any) => api.post(`${BASE}/catalog/banners`, data).then((r) => r.data),
-  deleteBanner: (id: string) => api.delete(`${BASE}/catalog/banners/${id}`).then((r) => r.data),
-  getFareRules: () => api.get(`${BASE}/catalog/fare-rules`).then((r) => r.data),
-  setFareRules: (data: any) => api.put(`${BASE}/catalog/fare-rules`, data).then((r) => r.data),
+  getCities: () => g(`${BASE}/catalog/cities`),
+  addCity: (data: any) => p(`${BASE}/catalog/cities`, data),
+  updateCity: (id: string, data: any) => pc(`${BASE}/catalog/cities/${id}`, data),
+  deleteCity: (id: string) => d(`${BASE}/catalog/cities/${id}`),
+  getBanners: () => g(`${BASE}/catalog/banners`),
+  addBanner: (data: any) => p(`${BASE}/catalog/banners`, data),
+  deleteBanner: (id: string) => d(`${BASE}/catalog/banners/${id}`),
+  getFareRules: () => g(`${BASE}/catalog/fare-rules`),
+  setFareRules: (data: any) => pt(`${BASE}/catalog/fare-rules`, data),
 
   // Compliance / KYC
-  getComplianceExpiring: (days = 30) => api.get(`${BASE}/compliance/expiring`, { params: { days } }).then((r) => r.data),
-  getComplianceDocs: () => api.get(`${BASE}/compliance`).then((r) => r.data),
-  addComplianceDoc: (data: any) => api.post(`${BASE}/compliance`, data).then((r) => r.data),
+  getComplianceExpiring: (days = 30) => g(`${BASE}/compliance/expiring`, { params: { days } }),
+  getComplianceDocs: () => g(`${BASE}/compliance`),
+  addComplianceDoc: (data: any) => p(`${BASE}/compliance`, data),
   verifyComplianceDoc: (id: string, status: string, notes?: string) =>
-    api.patch(`${BASE}/compliance/${id}/verify`, { status, notes }).then((r) => r.data),
-  deleteComplianceDoc: (id: string) => api.delete(`${BASE}/compliance/${id}`).then((r) => r.data),
+    pc(`${BASE}/compliance/${id}/verify`, { status, notes }),
+  deleteComplianceDoc: (id: string) => d(`${BASE}/compliance/${id}`),
 
   // Audit log + RBAC
-  getAuditLogs: (limit = 100) => api.get(`${BASE}/audit-logs`, { params: { limit } }).then((r) => r.data),
-  getRbac: () => api.get(`${BASE}/rbac`).then((r) => r.data),
-  setRbac: (matrix: Record<string, string[]>) => api.put(`${BASE}/rbac`, { matrix }).then((r) => r.data),
+  getAuditLogs: (limit = 100) => g(`${BASE}/audit-logs`, { params: { limit } }),
+  getRbac: () => g(`${BASE}/rbac`),
+  setRbac: (matrix: Record<string, string[]>) => pt(`${BASE}/rbac`, { matrix }),
 
   // Broadcast center
-  getBroadcasts: () => api.get(`${BASE}/broadcasts`).then((r) => r.data),
-  segmentSize: (segment: string) => api.get(`${BASE}/broadcasts/segment-size`, { params: { segment } }).then((r) => r.data),
-  sendBroadcast: (data: any) => api.post(`${BASE}/broadcasts`, data).then((r) => r.data),
+  getBroadcasts: () => g(`${BASE}/broadcasts`),
+  segmentSize: (segment: string) => g(`${BASE}/broadcasts/segment-size`, { params: { segment } }),
+  sendBroadcast: (data: any) => p(`${BASE}/broadcasts`, data),
 
   // Support / ticketing
-  getTickets: (status?: string) => api.get(`${BASE}/support`, { params: status ? { status } : {} }).then((r) => r.data),
-  getTicket: (id: string) => api.get(`${BASE}/support/${id}`).then((r) => r.data),
-  replyTicket: (id: string, body: string, isInternal = false) => api.post(`${BASE}/support/${id}/reply`, { body, isInternal }).then((r) => r.data),
-  updateTicket: (id: string, data: any) => api.patch(`${BASE}/support/${id}`, data).then((r) => r.data),
-  getCannedReplies: () => api.get(`${BASE}/support/canned`).then((r) => r.data),
+  getTickets: (status?: string) => g(`${BASE}/support`, { params: status ? { status } : {} }),
+  getTicket: (id: string) => g(`${BASE}/support/${id}`),
+  replyTicket: (id: string, body: string, isInternal = false) => p(`${BASE}/support/${id}/reply`, { body, isInternal }),
+  updateTicket: (id: string, data: any) => pc(`${BASE}/support/${id}`, data),
+  getCannedReplies: () => g(`${BASE}/support/canned`),
+
+  // Fraud rules / exports / health (#7, #8, #9)
+  getFraudRules: () => g(`${BASE}/fraud/rules`),
+  setFraudRules: (data: any) => pt(`${BASE}/fraud/rules`, data),
+  evaluateFraud: () => g(`${BASE}/fraud/evaluate`),
+  exportBookingsCsv: (from?: string, to?: string) => g(`${BASE}/exports/bookings.csv`, { params: { from, to } }),
+  exportPaymentsCsv: (from?: string, to?: string) => g(`${BASE}/exports/payments.csv`, { params: { from, to } }),
+  getSystemHealth: () => g(`${BASE}/system-health`),
 };
 
 export const disputesApi = {
   raise: (body: { type: string; subject: string; description?: string; bookingId?: string; pnr?: string }) =>
-    api.post('/disputes', body).then((r) => r.data),
-  mine: () => api.get('/disputes/mine').then((r) => r.data),
+    p('/disputes', body),
+  mine: () => g('/disputes/mine'),
 };

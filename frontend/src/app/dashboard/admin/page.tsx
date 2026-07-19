@@ -10,13 +10,14 @@ import { ComplianceConsole } from '@/components/admin/ComplianceConsole';
 import { AccessConsole } from '@/components/admin/AccessConsole';
 import { BroadcastConsole } from '@/components/admin/BroadcastConsole';
 import { SupportConsole } from '@/components/admin/SupportConsole';
+import { SystemConsole } from '@/components/admin/SystemConsole';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
   ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'revenue' | 'settlements' | 'disputes';
+type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'revenue' | 'settlements' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -132,7 +133,7 @@ export default function AdminDashboardPage() {
         {/* Tabs */}
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1 border-t">
-            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
+            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -519,6 +520,9 @@ export default function AdminDashboardPage() {
 
         {/* ── SUPPORT / TICKETING TAB ── */}
         {activeTab === 'support' && <SupportConsole />}
+
+        {/* ── SYSTEM (health / fraud / exports) TAB ── */}
+        {activeTab === 'system' && <SystemConsole />}
 
         {/* ── SETTLEMENTS / REFUNDS TAB ── */}
         {activeTab === 'settlements' && <FinanceConsole />}

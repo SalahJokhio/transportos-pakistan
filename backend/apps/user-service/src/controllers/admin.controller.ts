@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, Request, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, Request, Header, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
@@ -8,6 +8,7 @@ import { ComplianceService } from '../services/compliance.service';
 import { AuditService, AuditInterceptor } from '../services/audit.service';
 import { BroadcastService } from '../services/broadcast.service';
 import { SupportService } from '../services/support.service';
+import { PlatformOpsService } from '../services/platform-ops.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -30,8 +31,47 @@ export class AdminController {
     private readonly auditService: AuditService,
     private readonly broadcastService: BroadcastService,
     private readonly supportService: SupportService,
+    private readonly platformOps: PlatformOpsService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Fraud rules engine (#7) ------------------------------------------
+
+  @Get('fraud/rules')
+  @ApiOperation({ summary: 'Configurable fraud thresholds' })
+  getFraudRules() { return this.catalogService.getFraudRules(); }
+
+  @Put('fraud/rules')
+  @ApiOperation({ summary: 'Update fraud thresholds / blocklist' })
+  setFraudRules(@Body() body: any) { return this.catalogService.setFraudRules(body); }
+
+  @Get('fraud/evaluate')
+  @ApiOperation({ summary: 'Evaluate fraud signals against current rules' })
+  fraudEvaluate() { return this.platformOps.fraudSignals(); }
+
+  // ---- Finance / tax exports (#8) ---------------------------------------
+
+  @Get('exports/bookings.csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="bookings.csv"')
+  @ApiOperation({ summary: 'CONFIRMED bookings with GST breakdown (CSV)' })
+  exportBookings(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.platformOps.exportBookingsCsv(from, to);
+  }
+
+  @Get('exports/payments.csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="payments.csv"')
+  @ApiOperation({ summary: 'Payments ledger (CSV)' })
+  exportPayments(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.platformOps.exportPaymentsCsv(from, to);
+  }
+
+  // ---- System health (#9) -----------------------------------------------
+
+  @Get('system-health')
+  @ApiOperation({ summary: 'DB status, counts, uptime, memory' })
+  systemHealth() { return this.platformOps.systemHealth(); }
 
   // ---- Support / ticketing ----------------------------------------------
 
