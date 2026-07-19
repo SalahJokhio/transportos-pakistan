@@ -13,6 +13,7 @@ import { NotificationModule } from '../../notification-service/src/notification.
 import { AiModule } from '../../ai-service/src/ai.module';
 import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
 import { AssistantModule } from '../../assistant-service/src/assistant.module';
+import { CargoModule } from '../../cargo-service/src/cargo.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -30,6 +31,7 @@ import { UploadController } from './upload.controller';
     AiModule,
     AnalyticsModule,
     AssistantModule,
+    CargoModule,
   ],
   controllers: [HealthController, UploadController],
 })

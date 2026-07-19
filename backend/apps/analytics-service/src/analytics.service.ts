@@ -93,12 +93,10 @@ export class AnalyticsService {
     const rows = await this.bookingRepo.query(
       `SELECT r.name AS route, r."originCity" AS origin, r."destinationCity" AS destination,
               COUNT(DISTINCT t.id)::int AS trips,
-              COUNT(b.id) FILTER (WHERE b.status='CONFIRMED')::int AS bookings,
-              COALESCE(AVG(t."totalSeats"), 40)::numeric AS seats
+              COUNT(b.id) FILTER (WHERE b.status='CONFIRMED')::int AS bookings
        FROM trips t
        JOIN routes r ON r.id::text = t."routeId"
        LEFT JOIN bookings b ON b."tripId" = t.id
-       LEFT JOIN buses bus ON bus.id::text = t."busId"
        WHERE t."departureTime" >= now() - interval '30 days' ${companyId ? `AND t."companyId" = $1` : ``}
        GROUP BY r.name, r."originCity", r."destinationCity"
        ORDER BY bookings DESC LIMIT 10`,
