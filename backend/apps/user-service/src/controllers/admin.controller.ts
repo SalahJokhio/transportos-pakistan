@@ -4,6 +4,7 @@ import { AdminService } from '../services/admin.service';
 import { SettlementService } from '../services/settlement.service';
 import { CompanyService } from '../services/company.service';
 import { CatalogService } from '../services/catalog.service';
+import { ComplianceService } from '../services/compliance.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -21,8 +22,40 @@ export class AdminController {
     private readonly settlementService: SettlementService,
     private readonly companyService: CompanyService,
     private readonly catalogService: CatalogService,
+    private readonly complianceService: ComplianceService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Compliance / KYC -------------------------------------------------
+
+  @Get('compliance/expiring')
+  @ApiOperation({ summary: 'Documents expired or expiring soon (alert queue)' })
+  complianceExpiring(@Query('days') days?: string) {
+    return this.complianceService.expiring(days ? Number(days) : 30);
+  }
+
+  @Get('compliance')
+  @ApiOperation({ summary: 'All compliance documents (optionally filtered)' })
+  complianceList(@Query('ownerType') ownerType?: string, @Query('ownerId') ownerId?: string) {
+    return this.complianceService.list({ ownerType, ownerId });
+  }
+
+  @Post('compliance')
+  @ApiOperation({ summary: 'Add a compliance document (permit/fitness/licence/CNIC…)' })
+  addCompliance(@Body() body: any) {
+    return this.complianceService.create(body);
+  }
+
+  @Patch('compliance/:id/verify')
+  @ApiOperation({ summary: 'Verify or reject a document' })
+  verifyCompliance(@Param('id') id: string, @Body() body: { status: string; notes?: string }) {
+    return this.complianceService.verify(id, body.status, body.notes);
+  }
+
+  @Delete('compliance/:id')
+  deleteCompliance(@Param('id') id: string) {
+    return this.complianceService.remove(id);
+  }
 
   // ---- CMS / catalog ----------------------------------------------------
 

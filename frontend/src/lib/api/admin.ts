@@ -63,6 +63,14 @@ export const adminApi = {
   deleteBanner: (id: string) => api.delete(`${BASE}/catalog/banners/${id}`).then((r) => r.data),
   getFareRules: () => api.get(`${BASE}/catalog/fare-rules`).then((r) => r.data),
   setFareRules: (data: any) => api.put(`${BASE}/catalog/fare-rules`, data).then((r) => r.data),
+
+  // Compliance / KYC
+  getComplianceExpiring: (days = 30) => api.get(`${BASE}/compliance/expiring`, { params: { days } }).then((r) => r.data),
+  getComplianceDocs: () => api.get(`${BASE}/compliance`).then((r) => r.data),
+  addComplianceDoc: (data: any) => api.post(`${BASE}/compliance`, data).then((r) => r.data),
+  verifyComplianceDoc: (id: string, status: string, notes?: string) =>
+    api.patch(`${BASE}/compliance/${id}/verify`, { status, notes }).then((r) => r.data),
+  deleteComplianceDoc: (id: string) => api.delete(`${BASE}/compliance/${id}`).then((r) => r.data),
 };
 
 export const disputesApi = {
