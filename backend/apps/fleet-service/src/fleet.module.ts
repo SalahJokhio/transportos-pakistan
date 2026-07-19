@@ -8,6 +8,7 @@ import { Trip } from './entities/trip.entity';
 import { DriverReview } from './entities/driver-review.entity';
 import { TripReport } from './entities/trip-report.entity';
 import { Employee } from './entities/employee.entity';
+import { Attendance } from './entities/attendance.entity';
 import { User } from '../../user-service/src/entities/user.entity';
 import { RouteService } from './services/route.service';
 import { BusService } from './services/bus.service';
@@ -28,7 +29,7 @@ import { BookingModule } from '../../booking-service/src/booking.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([Route, Bus, Trip, DriverReview, TripReport, Employee, User]),
+    TypeOrmModule.forFeature([Route, Bus, Trip, DriverReview, TripReport, Employee, Attendance, User]),
     BookingModule, // for operator dashboard booking/revenue stats
   ],
   controllers: [

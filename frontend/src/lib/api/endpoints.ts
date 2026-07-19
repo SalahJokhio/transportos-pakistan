@@ -55,6 +55,8 @@ export const paymentApi = {
 
 export const analyticsApi = {
   overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
+  forecast: (companyId?: string) => get('/analytics/forecast', companyId ? { params: { companyId } } : undefined),
+  driverScorecards: (companyId?: string) => get('/analytics/driver-scorecards', companyId ? { params: { companyId } } : undefined),
 };
 
 export const assistantApi = {

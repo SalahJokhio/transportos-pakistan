@@ -39,6 +39,25 @@ export class OperatorController {
     return this.employeeService.stats(req.user?.companyId || req.user?.sub);
   }
 
+  // ── Attendance & payroll (#14) ───────────────────────────────
+  @Post('attendance')
+  @ApiOperation({ summary: 'Mark staff attendance for a date' })
+  markAttendance(@Body() body: any, @Request() req) {
+    return this.employeeService.markAttendance(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Get('attendance')
+  @ApiOperation({ summary: 'Attendance records (optionally by date)' })
+  listAttendance(@Query('date') date: string, @Request() req) {
+    return this.employeeService.listAttendance(req.user?.companyId || req.user?.sub, date);
+  }
+
+  @Get('payroll')
+  @ApiOperation({ summary: 'Monthly payroll summary (salary + attendance)' })
+  payroll(@Query('month') month: string, @Request() req) {
+    return this.employeeService.payroll(req.user?.companyId || req.user?.sub, month);
+  }
+
   @Get('employees')
   @ApiOperation({ summary: 'List company employees (filter by type/status/search)' })
   employees(

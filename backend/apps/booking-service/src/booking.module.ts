@@ -5,6 +5,8 @@ import { DatabaseModule } from '@app/database';
 import { Booking } from './entities/booking.entity';
 import { BookingSeat } from './entities/booking-seat.entity';
 import { Coupon } from './entities/coupon.entity';
+import { Shift } from './entities/shift.entity';
+import { ShiftService } from './services/shift.service';
 import { BookingService } from './services/booking.service';
 import { PricingService } from './services/pricing.service';
 import { SeatLockService } from './services/seat-lock.service';
@@ -25,11 +27,11 @@ import { NotificationModule } from '../../notification-service/src/notification.
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([Booking, BookingSeat, Coupon, User, LoyaltyTransaction, Trip, Route, Bus]),
+    TypeOrmModule.forFeature([Booking, BookingSeat, Coupon, Shift, User, LoyaltyTransaction, Trip, Route, Bus]),
     NotificationModule, // SMS on confirm / cancel
   ],
   controllers: [BookingController, CouponController],
-  providers: [BookingService, PricingService, SeatLockService, TicketService, CouponService, ConfigService],
+  providers: [BookingService, PricingService, SeatLockService, TicketService, CouponService, ShiftService, ConfigService],
   exports: [BookingService], // consumed by PaymentModule to confirm bookings
 })
 export class BookingModule {}

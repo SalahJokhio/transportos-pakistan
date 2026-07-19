@@ -94,9 +94,44 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        <ForecastAndScorecards companyId={companyId} />
         <DynamicPricing />
       </div>
     </>
+  );
+}
+
+/** #16 — demand forecast per route + driver scorecards. */
+function ForecastAndScorecards({ companyId }: { companyId?: string }) {
+  const { data: fc } = useQuery({ queryKey: ['analytics-forecast', companyId], queryFn: () => analyticsApi.forecast(companyId) });
+  const { data: sc } = useQuery({ queryKey: ['analytics-scorecards', companyId], queryFn: () => analyticsApi.driverScorecards(companyId) });
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="card p-4">
+        <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><Sparkles size={16} /> Demand forecast</div>
+        <table className="w-full text-sm">
+          <thead className="text-slate-400 text-left text-xs"><tr><th className="py-1">Route</th><th>Trips</th><th>Avg/trip</th><th>Next wk</th></tr></thead>
+          <tbody>
+            {(fc?.routes ?? []).map((r: any, i: number) => (
+              <tr key={i} className="border-t"><td className="py-1.5">{r.origin} → {r.destination}</td><td>{r.trips}</td><td>{r.avgPerTrip}</td><td className="font-semibold text-orange-600">{r.projectedNextWeek}</td></tr>
+            ))}
+            {(fc?.routes ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-slate-400">Not enough data yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="card p-4">
+        <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><TrendingUp size={16} /> Driver scorecards</div>
+        <table className="w-full text-sm">
+          <thead className="text-slate-400 text-left text-xs"><tr><th className="py-1">Driver</th><th>Rating</th><th>Reviews</th><th>Trips done</th></tr></thead>
+          <tbody>
+            {(sc?.drivers ?? []).map((d: any, i: number) => (
+              <tr key={i} className="border-t"><td className="py-1.5 font-mono text-xs">{String(d.driverId).slice(0, 8)}</td><td>{d.avgRating ?? '—'}⭐</td><td>{d.reviews}</td><td>{d.tripsCompleted}/{d.tripsTotal}</td></tr>
+            ))}
+            {(sc?.drivers ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-slate-400">No driver data yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

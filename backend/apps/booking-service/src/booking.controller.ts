@@ -4,6 +4,7 @@ import { BookingService } from './services/booking.service';
 import { SeatLockService } from './services/seat-lock.service';
 import { PricingService } from './services/pricing.service';
 import { TicketService } from './services/ticket.service';
+import { ShiftService } from './services/shift.service';
 import { CreateBookingDto, CancelBookingDto } from './dto/booking.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -17,7 +18,34 @@ export class BookingController {
     private readonly seatLockService: SeatLockService,
     private readonly pricingService: PricingService,
     private readonly ticketService: TicketService,
+    private readonly shiftService: ShiftService,
   ) {}
+
+  // ---- Counter/agent POS: cash shifts (#15) ----------------------------
+
+  @Get('shift/current')
+  @ApiOperation({ summary: 'The agent’s currently open shift (if any)' })
+  currentShift(@Request() req) {
+    return this.shiftService.current(req.user?.sub);
+  }
+
+  @Post('shift/open')
+  @ApiOperation({ summary: 'Open a counter cash shift' })
+  openShift(@Body() body: { openingCash?: number }, @Request() req) {
+    return this.shiftService.open(req.user?.sub, req.user?.companyId || req.user?.sub, body?.openingCash || 0);
+  }
+
+  @Post('shift/close')
+  @ApiOperation({ summary: 'Close shift with cash reconciliation (variance)' })
+  closeShift(@Body() body: { closingCash?: number }, @Request() req) {
+    return this.shiftService.close(req.user?.sub, body?.closingCash || 0);
+  }
+
+  @Get('shift/history')
+  @ApiOperation({ summary: 'Past shifts for this agent' })
+  shiftHistory(@Request() req) {
+    return this.shiftService.history(req.user?.sub);
+  }
 
   @Get('ticket/:pnr')
   @ApiOperation({ summary: 'Full e-ticket: booking + trip/route/bus + scannable QR' })

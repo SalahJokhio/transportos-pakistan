@@ -12,4 +12,16 @@ export class AnalyticsController {
   overview(@Query('companyId') companyId?: string) {
     return this.analytics.overview(companyId);
   }
+
+  @Get('forecast')
+  @ApiOperation({ summary: 'Per-route demand forecast (avg/trip + next-week projection)' })
+  forecast(@Query('companyId') companyId?: string) {
+    return this.analytics.forecast(companyId);
+  }
+
+  @Get('driver-scorecards')
+  @ApiOperation({ summary: 'Driver rating / trips-completed scorecards' })
+  driverScorecards(@Query('companyId') companyId?: string) {
+    return this.analytics.driverScorecards(companyId);
+  }
 }

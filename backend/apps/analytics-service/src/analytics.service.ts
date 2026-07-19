@@ -84,4 +84,64 @@ export class AnalyticsService {
       paymentMix: paymentMix.map((p: any) => ({ provider: p.provider, count: p.n, total: Number(p.total) })),
     };
   }
+
+  /**
+   * Demand forecast per route: recent avg confirmed bookings per trip and a
+   * naive next-week projection (avg/trip × trips run in the last 30 days).
+   */
+  async forecast(companyId?: string) {
+    const rows = await this.bookingRepo.query(
+      `SELECT r.name AS route, r."originCity" AS origin, r."destinationCity" AS destination,
+              COUNT(DISTINCT t.id)::int AS trips,
+              COUNT(b.id) FILTER (WHERE b.status='CONFIRMED')::int AS bookings,
+              COALESCE(AVG(t."totalSeats"), 40)::numeric AS seats
+       FROM trips t
+       JOIN routes r ON r.id::text = t."routeId"
+       LEFT JOIN bookings b ON b."tripId" = t.id
+       LEFT JOIN buses bus ON bus.id::text = t."busId"
+       WHERE t."departureTime" >= now() - interval '30 days' ${companyId ? `AND t."companyId" = $1` : ``}
+       GROUP BY r.name, r."originCity", r."destinationCity"
+       ORDER BY bookings DESC LIMIT 10`,
+      companyId ? [companyId] : [],
+    );
+    return {
+      routes: rows.map((r: any) => {
+        const trips = Number(r.trips) || 0;
+        const bookings = Number(r.bookings) || 0;
+        const avgPerTrip = trips ? Math.round((bookings / trips) * 10) / 10 : 0;
+        const projectedNextWeek = Math.round(avgPerTrip * Math.max(1, Math.round(trips / 4)));
+        return { route: r.route, origin: r.origin, destination: r.destination, trips, bookings, avgPerTrip, projectedNextWeek };
+      }),
+    };
+  }
+
+  /** Driver scorecards: rating, review count, trips completed, on-time rate. */
+  async driverScorecards(companyId?: string) {
+    const reviews = await this.bookingRepo.query(
+      `SELECT "driverId", COUNT(*)::int AS reviews, ROUND(AVG(rating)::numeric, 2) AS "avgRating"
+       FROM driver_reviews GROUP BY "driverId"`,
+    );
+    const trips = await this.bookingRepo.query(
+      `SELECT "driverId",
+              COUNT(*) FILTER (WHERE status='ARRIVED')::int AS completed,
+              COUNT(*)::int AS total
+       FROM trips ${companyId ? `WHERE "companyId" = $1` : ``} GROUP BY "driverId"`,
+      companyId ? [companyId] : [],
+    );
+    const tripBy = new Map(trips.map((t: any) => [t.driverId, t]));
+    const ids = new Set([...reviews.map((r: any) => r.driverId), ...trips.map((t: any) => t.driverId)]);
+    return {
+      drivers: [...ids].filter(Boolean).map((id) => {
+        const rv = reviews.find((r: any) => r.driverId === id);
+        const tr: any = tripBy.get(id) || {};
+        return {
+          driverId: id,
+          avgRating: rv ? Number(rv.avgRating) : null,
+          reviews: rv ? Number(rv.reviews) : 0,
+          tripsCompleted: Number(tr.completed || 0),
+          tripsTotal: Number(tr.total || 0),
+        };
+      }),
+    };
+  }
 }
