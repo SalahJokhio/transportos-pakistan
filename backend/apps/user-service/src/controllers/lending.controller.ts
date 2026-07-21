@@ -14,18 +14,18 @@ export class LendingController {
   @Get('offer')
   @ApiOperation({ summary: 'Your advance offer (based on ticket revenue)' })
   offer(@Request() req) {
-    return this.lending.offer(req.user?.companyId || req.user?.sub);
+    return this.lending.offer(req.user?.companyId || req.user?.id);
   }
 
   @Post('request')
   @ApiOperation({ summary: 'Request a working-capital advance' })
   request(@Body() body: { amount: number }, @Request() req) {
-    return this.lending.request(req.user?.companyId || req.user?.sub, Number(body?.amount) || 0);
+    return this.lending.request(req.user?.companyId || req.user?.id, Number(body?.amount) || 0);
   }
 
   @Get()
   @ApiOperation({ summary: 'Your loans' })
   list(@Request() req) {
-    return this.lending.list(req.user?.companyId || req.user?.sub);
+    return this.lending.list(req.user?.companyId || req.user?.id);
   }
 }
