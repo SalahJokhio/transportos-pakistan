@@ -130,14 +130,14 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — horizontally scrollable so the 13 tabs never overflow the page */}
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1 border-t">
+          <div className="flex gap-1 border-t overflow-x-auto">
             {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-5 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-4 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
                   activeTab === tab
                     ? 'border-red-600 text-red-600'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
