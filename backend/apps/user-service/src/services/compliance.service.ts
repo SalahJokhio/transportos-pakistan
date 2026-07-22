@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { ComplianceDocument } from '../entities/compliance-document.entity';
+import { EventBusService } from '../../../automation-service/src/services/event-bus.service';
 
 @Injectable()
 export class ComplianceService {
+  private readonly logger = new Logger(ComplianceService.name);
+
   constructor(
     @InjectRepository(ComplianceDocument) private readonly docRepo: Repository<ComplianceDocument>,
+    private readonly eventBus: EventBusService,
   ) {}
 
   /** Days until expiry (negative = already expired), or null if no expiry. */
@@ -63,5 +68,35 @@ export class ComplianceService {
   async remove(id: string) {
     await this.docRepo.delete(id);
     return { deleted: true };
+  }
+
+  /**
+   * Daily: emit COMPLIANCE_EXPIRING for every document expired or expiring
+   * within 30 days, so rules can alert the owning operator / renew tasks.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async emitExpiryEvents() {
+    try {
+      const { expired, expiringSoon } = await this.expiring(30);
+      const docs = [...expired, ...expiringSoon];
+      for (const d of docs) {
+        await this.eventBus.emit('COMPLIANCE_EXPIRING', {
+          documentId: d.id,
+          docType: d.docType,
+          ownerType: d.ownerType,
+          ownerId: d.ownerId,
+          expiresAt: d.expiresAt,
+          daysLeft: d.daysLeft,
+          state: d.expiry, // EXPIRED | EXPIRING
+        }, {
+          // Company-owned docs scope to that tenant; driver/bus docs stay platform-wide.
+          companyId: d.ownerType === 'COMPANY' ? d.ownerId : null,
+          source: 'compliance.cron',
+        });
+      }
+      if (docs.length) this.logger.log(`Emitted COMPLIANCE_EXPIRING for ${docs.length} document(s)`);
+    } catch (e: any) {
+      this.logger.warn(`compliance expiry emit failed: ${e.message}`);
+    }
   }
 }

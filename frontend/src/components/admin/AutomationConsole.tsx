@@ -5,7 +5,10 @@ import { automationApi } from '@/lib/api/admin';
 import { Zap, Plus, Trash2, FlaskConical, Bell, Activity, Power } from 'lucide-react';
 
 // Events the platform emits today (extend as more emit points are wired).
-const EVENT_TYPES = ['BOOKING_CREATED', 'BOOKING_CANCELLED', 'TRIP_DELAYED', 'PAYMENT_FAILED', 'INSURANCE_EXPIRING', 'FUEL_LOW'];
+const EVENT_TYPES = [
+  'BOOKING_CREATED', 'BOOKING_CANCELLED', 'TRIP_STATUS_CHANGED', 'TRIP_DELAYED',
+  'PAYMENT_COMPLETED', 'PAYMENT_FAILED', 'COMPLIANCE_EXPIRING',
+];
 const OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains', 'in', 'exists'];
 const ACTION_TYPES = ['alert', 'notify', 'webhook', 'log'];
 

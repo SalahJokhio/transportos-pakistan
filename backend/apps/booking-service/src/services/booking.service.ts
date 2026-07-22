@@ -412,6 +412,21 @@ export class BookingService {
     // Notify the passenger their booking is cancelled (+ refund on the way).
     await this.notifyCancelled(booking);
 
+    // Event Engine: let rules react to cancellations (best-effort).
+    try {
+      const trip = await this.tripRepo.findOne({ where: { id: booking.tripId } });
+      await this.eventBus.emit('BOOKING_CANCELLED', {
+        pnr: booking.pnr,
+        bookingId: booking.id,
+        tripId: booking.tripId,
+        reason: dto.reason,
+        refundAmount: refund ? (refund as any).amount : 0,
+        refundPercent: refund ? (refund as any).percent : 0,
+      }, { companyId: trip?.companyId ?? null, source: 'booking.cancel' });
+    } catch (e: any) {
+      this.logger.warn(`event emit failed for ${booking.pnr}: ${e.message}`);
+    }
+
     const result: any = await this.findById(id);
     result.refund = refund ?? { percent: 0, amount: 0, reason: 'No settled payment to refund' };
     return result;
