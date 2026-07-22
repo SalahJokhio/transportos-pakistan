@@ -15,6 +15,7 @@ import { AiModule } from '../../ai-service/src/ai.module';
 import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
 import { AssistantModule } from '../../assistant-service/src/assistant.module';
 import { CargoModule } from '../../cargo-service/src/cargo.module';
+import { AutomationModule } from '../../automation-service/src/automation.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -34,6 +35,7 @@ import { UploadController } from './upload.controller';
     AnalyticsModule,
     AssistantModule,
     CargoModule,
+    AutomationModule, // Rules + Event Engine (global — exports EventBusService)
   ],
   controllers: [HealthController, UploadController],
 })

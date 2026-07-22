@@ -24,6 +24,7 @@ import { Trip } from '../../../fleet-service/src/entities/trip.entity';
 import { Route } from '../../../fleet-service/src/entities/route.entity';
 import { Bus } from '../../../fleet-service/src/entities/bus.entity';
 import { NotificationService } from '../../../notification-service/src/notification.service';
+import { EventBusService } from '../../../automation-service/src/services/event-bus.service';
 
 // 1 loyalty point per Rs 10 spent
 const POINTS_PER_RUPEE = 1 / 10;
@@ -48,6 +49,7 @@ export class BookingService {
     private readonly pricingService: PricingService,
     private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
+    private readonly eventBus: EventBusService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -195,6 +197,26 @@ export class BookingService {
 
     // Count the redemption once the booking exists (best-effort).
     if (appliedCoupon) await this.couponService.redeem(appliedCoupon).catch(() => undefined);
+
+    // Emit into the Event Engine so no-code rules can react (best-effort — a
+    // failure here must never break the booking).
+    try {
+      const trip = await this.tripRepo.findOne({ where: { id: dto.tripId } });
+      const buyer = await this.userRepo.findOne({ where: { id: passengerId } });
+      await this.eventBus.emit('BOOKING_CREATED', {
+        pnr: saved.pnr,
+        bookingId: saved.id,
+        tripId: saved.tripId,
+        seatCount: saved.seatNumbers.length,
+        finalAmount: Number(saved.finalAmount),
+        paymentMode: saved.paymentMode,
+        boardingPoint: saved.boardingPoint ?? null,
+        passengerPhone: buyer?.phone ?? null,
+        passengerName: buyer?.firstName ?? null,
+      }, { companyId: trip?.companyId ?? null, source: 'booking.create' });
+    } catch (e: any) {
+      this.logger.warn(`event emit failed for ${saved.pnr}: ${e.message}`);
+    }
     return saved;
   }
 
