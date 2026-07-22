@@ -84,6 +84,21 @@ export class TicketService {
       pnr: booking.pnr,
       status: booking.status,
       seatNumbers: booking.seatNumbers,
+      boardedAt: booking.boardedAt,
     };
+  }
+
+  /**
+   * Conductor scans the QR at boarding: verify the signature, then stamp the
+   * booking as boarded (idempotent — a re-scan just returns "already boarded").
+   */
+  async board(pnr: string, sig: string) {
+    const check = await this.verify(pnr, sig);
+    if (!check.valid) return { boarded: false, ...check };
+    const booking = await this.bookingRepo.findOne({ where: { pnr } });
+    if (booking.boardedAt) return { boarded: true, alreadyBoarded: true, pnr, seatNumbers: booking.seatNumbers, boardedAt: booking.boardedAt };
+    const boardedAt = new Date();
+    await this.bookingRepo.update(booking.id, { boardedAt });
+    return { boarded: true, pnr, seatNumbers: booking.seatNumbers, boardedAt };
   }
 }

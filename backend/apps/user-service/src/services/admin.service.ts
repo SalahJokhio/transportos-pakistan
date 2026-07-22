@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
-import { UserRole } from '@app/common';
+import { UserRole, PaymentStatus } from '@app/common';
 import { Booking } from '../../../booking-service/src/entities/booking.entity';
+import { Payment } from '../../../payment-service/src/entities/payment.entity';
+import { WalletService } from './wallet.service';
+import { LedgerService } from './ledger.service';
 import { BookingStatus } from '@app/common';
 
 @Injectable()
@@ -11,7 +14,60 @@ export class AdminService {
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
+    @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
+    private readonly walletService: WalletService,
+    private readonly ledger: LedgerService,
   ) {}
+
+  /** Recent payments with the booking PNR, for the refunds console. */
+  async listPayments(limit = 50) {
+    const payments = await this.paymentRepo.find({ order: { createdAt: 'DESC' }, take: limit });
+    const bookingIds = [...new Set(payments.map((p) => p.bookingId))];
+    const bookings = bookingIds.length ? await this.bookingRepo.findByIds(bookingIds) : [];
+    const pnrBy = new Map(bookings.map((b) => [b.id, b.pnr]));
+    return payments.map((p) => ({
+      id: p.id,
+      bookingId: p.bookingId,
+      pnr: pnrBy.get(p.bookingId) ?? null,
+      provider: p.provider,
+      amount: Number(p.amount),
+      refundedAmount: Number(p.refundedAmount),
+      status: p.status,
+      createdAt: p.createdAt,
+    }));
+  }
+
+  /**
+   * Admin-triggered refund. Credits the passenger's wallet with the refunded
+   * amount and records it on the payment. Idempotent-ish: a fully-refunded
+   * payment can't be refunded again. (Gateway-side reversal for live JazzCash/
+   * EasyPaisa is issued by the payment-service; this is the money-back record.)
+   */
+  async refundPayment(paymentId: string, amount?: number, reason?: string) {
+    const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== PaymentStatus.COMPLETED && payment.status !== PaymentStatus.REFUNDED) {
+      throw new BadRequestException(`Cannot refund a ${payment.status} payment`);
+    }
+    const remaining = Number(payment.amount) - Number(payment.refundedAmount);
+    const toRefund = amount != null ? Number(amount) : remaining;
+    if (toRefund <= 0 || toRefund > remaining) throw new BadRequestException(`Refundable amount is ${remaining}`);
+
+    const booking = await this.bookingRepo.findOne({ where: { id: payment.bookingId } });
+    if (booking) {
+      await this.walletService.credit(booking.passengerId, toRefund, {
+        description: `Refund — ${booking.pnr}${reason ? ` (${reason})` : ''}`,
+        bookingId: payment.bookingId,
+      });
+    }
+    const refundedTotal = Number(payment.refundedAmount) + toRefund;
+    await this.paymentRepo.update(payment.id, {
+      refundedAmount: refundedTotal,
+      status: refundedTotal >= Number(payment.amount) ? PaymentStatus.REFUNDED : payment.status,
+    });
+    this.ledger.recordRefund(payment.id, toRefund, payment.bookingId).catch(() => undefined);
+    return { success: true, paymentId: payment.id, refundedAmount: refundedTotal };
+  }
 
   async getPlatformStats() {
     const [totalUsers, activeUsers] = await Promise.all([

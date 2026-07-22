@@ -79,10 +79,17 @@ export class TripService {
       .filter(t => t.availableSeats >= passengers);
   }
 
-  async findById(id: string): Promise<Trip> {
+  async findById(id: string): Promise<any> {
     const trip = await this.tripRepo.findOne({ where: { id } });
     if (!trip) throw new NotFoundException('Trip not found');
-    return trip;
+    // Attach the route (with boarding/drop points) so checkout can offer them.
+    const route = await this.routeRepo.findOne({ where: { id: trip.routeId } });
+    return {
+      ...trip,
+      route,
+      boardingPoints: route?.boardingPoints ?? [],
+      droppingPoints: route?.droppingPoints ?? [],
+    };
   }
 
   async updateStatus(id: string, status: TripStatus): Promise<Trip> {

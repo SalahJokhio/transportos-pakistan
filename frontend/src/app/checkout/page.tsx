@@ -1,13 +1,14 @@
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth.store';
-import { bookingApi, paymentApi, tripApi } from '@/lib/api/endpoints';
+import { bookingApi, paymentApi, tripApi, couponApi, eventsApi } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
-import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
+import { CreditCard, Phone, User, Shield, ChevronRight, MapPin } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
+import { redirectToGateway } from '@/lib/payment/redirectToGateway';
 
-type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet';
+type PaymentMethod = 'jazzcash' | 'easypaisa' | 'wallet' | 'counter';
 
 export default function CheckoutPage() {
   const sp = useSearchParams();
@@ -34,7 +35,29 @@ export default function CheckoutPage() {
   const basePrice = trip?.basePrice || 0;
   const subtotal = basePrice * seats.length;
   const gst = Math.round(subtotal * 0.16);
-  const total = subtotal + gst;
+  const [promo, setPromo] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [promoMsg, setPromoMsg] = useState('');
+  const [boardingPoint, setBoardingPoint] = useState('');
+  const [dropoffPoint, setDropoffPoint] = useState('');
+  const total = Math.max(0, subtotal + gst - discount);
+  // Stable idempotency key for this checkout — a double-tapped "Book" reuses it
+  // so the server returns the original booking instead of creating a duplicate.
+  const [idempotencyKey] = useState(() =>
+    (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bk-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+  );
+
+  // Funnel: reaching checkout = payment started.
+  useEffect(() => { eventsApi.funnel('pay_start', { tripId }); }, [tripId]);
+
+  const applyPromo = async () => {
+    setPromoMsg('');
+    try {
+      const res: any = await couponApi.validate(promo, subtotal + gst);
+      if (res?.valid) { setDiscount(res.discount); setPromoMsg(`− Rs ${res.discount} applied`); }
+      else { setDiscount(0); setPromoMsg(res?.message || 'Invalid code'); }
+    } catch { setDiscount(0); setPromoMsg('Could not validate code'); }
+  };
 
   const updatePassenger = (i: number, field: string, value: string) => {
     setPassengers((prev) => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
@@ -52,18 +75,33 @@ export default function CheckoutPage() {
         tripId,
         seatNumbers: seats,
         passengerDetails: passengers,
+        promoCode: discount > 0 ? promo : undefined,
+        idempotencyKey,
+        paymentMode: paymentMethod === 'counter' ? 'COUNTER' : 'ONLINE',
+        boardingPoint: boardingPoint || undefined,
+        dropoffPoint: dropoffPoint || undefined,
       });
 
-      if (paymentMethod === 'wallet') {
-        // 2a. Pay straight from the wallet balance (debits + confirms).
+      if (paymentMethod === 'counter') {
+        // 2a. Cash-on-counter: reserve now, pay at the counter. Seats stay held.
+        eventsApi.funnel('pay_done', { tripId });
+        router.push(`/booking/${booking.pnr}?reserved=1`);
+        return;
+      } else if (paymentMethod === 'wallet') {
+        // 2b. Pay straight from the wallet balance (debits + confirms).
         await paymentApi.payWithWallet(booking.id);
       } else {
-        // 2b. Record the gateway intent, then settle (mock-confirm in dev).
-        await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
-        await paymentApi.mockConfirm(booking.id);
+        // 2c. Start the gateway payment.
+        const gw: any = await paymentApi.initiate({ bookingId: booking.id, method: paymentMethod });
+        if (gw?.live) {
+          redirectToGateway(gw);
+          return; // browser is navigating away
+        }
+        await paymentApi.mockConfirm(booking.id); // sandbox settle
       }
 
       // 3. Done — show the e-ticket.
+      eventsApi.funnel('pay_done', { tripId });
       router.push(`/booking/${booking.pnr}?confirmed=1`);
     } catch (err: any) {
       setError(err.message || 'Booking failed. Please try again.');
@@ -136,16 +174,48 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {/* Boarding / drop-off points (shown only if the route defines them) */}
+          {((trip?.boardingPoints?.length ?? 0) > 0 || (trip?.droppingPoints?.length ?? 0) > 0) && (
+            <div className="card">
+              <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <MapPin size={18} className="text-orange-600" /> Boarding & Drop-off
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {(trip?.boardingPoints?.length ?? 0) > 0 && (
+                  <label className="text-sm">Boarding point
+                    <select value={boardingPoint} onChange={(e) => setBoardingPoint(e.target.value)} className="input mt-1">
+                      <option value="">Select…</option>
+                      {trip.boardingPoints.map((b: any, i: number) => (
+                        <option key={i} value={b.name}>{b.name}{b.time ? ` (${b.time})` : ''}{b.landmark ? ` — ${b.landmark}` : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {(trip?.droppingPoints?.length ?? 0) > 0 && (
+                  <label className="text-sm">Drop-off point
+                    <select value={dropoffPoint} onChange={(e) => setDropoffPoint(e.target.value)} className="input mt-1">
+                      <option value="">Select…</option>
+                      {trip.droppingPoints.map((d: any, i: number) => (
+                        <option key={i} value={d.name}>{d.name}{d.landmark ? ` — ${d.landmark}` : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Payment method */}
           <div className="card">
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
               <CreditCard size={18} className="text-orange-600" /> Payment Method
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {([
                 { id: 'wallet', label: 'Wallet', color: 'text-slate-800', bg: 'bg-slate-100 border-slate-300' },
                 { id: 'jazzcash', label: 'JazzCash', color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
                 { id: 'easypaisa', label: 'EasyPaisa', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+                { id: 'counter', label: 'Pay at counter', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
               ] as const).map((m) => (
                 <button
                   key={m.id}
@@ -177,6 +247,26 @@ export default function CheckoutPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500">GST (16%)</span>
                 <span>Rs {gst.toLocaleString()}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Promo discount</span>
+                  <span>− Rs {discount.toLocaleString()}</span>
+                </div>
+              )}
+              {/* Promo code */}
+              <div className="pt-2">
+                <div className="flex gap-2">
+                  <input
+                    value={promo}
+                    onChange={(e) => setPromo(e.target.value.toUpperCase())}
+                    placeholder="Promo code"
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm uppercase"
+                  />
+                  <button type="button" onClick={applyPromo}
+                    className="px-3 py-2 text-sm font-medium bg-slate-100 rounded-lg hover:bg-slate-200">Apply</button>
+                </div>
+                {promoMsg && <div className={`text-xs mt-1 ${discount > 0 ? 'text-green-600' : 'text-red-500'}`}>{promoMsg}</div>}
               </div>
               <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between font-bold text-base">
                 <span>Total</span>

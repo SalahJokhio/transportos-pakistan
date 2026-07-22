@@ -10,6 +10,13 @@ export class Booking {
   @Column()
   pnr: string;
 
+  // Client-supplied dedup key: a double-tapped "Book" (common on PK networks)
+  // returns the original booking instead of creating a second one. Nullable +
+  // unique (Postgres allows many NULLs, so old rows are unaffected).
+  @Index({ unique: true })
+  @Column({ nullable: true })
+  idempotencyKey: string;
+
   @Column()
   tripId: string;
 
@@ -24,6 +31,11 @@ export class Booking {
 
   @Column({ type: 'enum', enum: BookingStatus, default: BookingStatus.PENDING_PAYMENT })
   status: BookingStatus;
+
+  // ONLINE (auto-expires if unpaid) | COUNTER (cash-on-counter reservation, held
+  // until the agent collects cash — not auto-expired by the 15-min cron).
+  @Column({ default: 'ONLINE' })
+  paymentMode: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
@@ -42,6 +54,17 @@ export class Booking {
 
   @Column({ nullable: true })
   cancelledAt: Date;
+
+  // #7 QR boarding: stamped when the conductor scans the ticket at boarding.
+  @Column({ type: 'timestamp', nullable: true })
+  boardedAt: Date;
+
+  // Passenger-chosen boarding / drop-off points (from the route's named points).
+  @Column({ nullable: true })
+  boardingPoint: string;
+
+  @Column({ nullable: true })
+  dropoffPoint: string;
 
   @Column({ type: 'jsonb', nullable: true })
   passengerDetails: Array<{

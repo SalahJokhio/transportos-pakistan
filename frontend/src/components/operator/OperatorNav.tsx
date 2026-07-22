@@ -1,10 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, FileText, Users } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, FileText, Users, Contact, BarChart3, Radio } from 'lucide-react';
 
 const LINKS = [
   { href: '/dashboard/operator', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/ops', label: 'Live Map', icon: Radio },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/staff', label: 'Staff & HR', icon: Contact },
   { href: '/dashboard/drivers', label: 'Drivers', icon: Users },
   { href: '/dashboard/finance', label: 'Finance', icon: TrendingUp },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
@@ -22,7 +25,7 @@ export function OperatorNav() {
               key={href}
               href={href}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                active ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-orange-300'
+                active ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300'
               }`}
             >
               <Icon size={15} /> {label}

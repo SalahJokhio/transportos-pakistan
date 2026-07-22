@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from '@app/database';
 
 // Import all service modules
@@ -10,6 +11,10 @@ import { BookingModule } from '../../booking-service/src/booking.module';
 import { TrackingModule } from '../../tracking-service/src/tracking.module';
 import { PaymentModule } from '../../payment-service/src/payment.module';
 import { NotificationModule } from '../../notification-service/src/notification.module';
+import { AiModule } from '../../ai-service/src/ai.module';
+import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
+import { AssistantModule } from '../../assistant-service/src/assistant.module';
+import { CargoModule } from '../../cargo-service/src/cargo.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -17,6 +22,7 @@ import { UploadController } from './upload.controller';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    ScheduleModule.forRoot(), // enables @Cron jobs (reconcile, stale-booking expiry)
     DatabaseModule,
     UserModule,
     FleetModule,
@@ -24,6 +30,10 @@ import { UploadController } from './upload.controller';
     TrackingModule,
     PaymentModule,
     NotificationModule,
+    AiModule,
+    AnalyticsModule,
+    AssistantModule,
+    CargoModule,
   ],
   controllers: [HealthController, UploadController],
 })

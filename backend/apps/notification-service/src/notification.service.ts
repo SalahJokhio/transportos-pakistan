@@ -65,6 +65,30 @@ export class NotificationService {
     return { success: true, provider: 'console' };
   }
 
+  /**
+   * Send over WhatsApp (Twilio WhatsApp channel). Falls back to console until
+   * TWILIO_WHATSAPP_FROM + creds are set. Used for transactional messages
+   * (booking confirmation, delay, "bus arriving") — WhatsApp-first for PK.
+   */
+  async sendWhatsApp(dto: SendSmsDto): Promise<{ success: boolean; provider: string }> {
+    const phone = this.normalizePakistaniPhone(dto.phone);
+    const from = this.configService.get('TWILIO_WHATSAPP_FROM');
+    if (this.twilioClient && from) {
+      try {
+        await this.twilioClient.messages.create({
+          body: dto.message,
+          from: `whatsapp:${from}`,
+          to: `whatsapp:${phone}`,
+        });
+        return { success: true, provider: 'twilio-whatsapp' };
+      } catch (err: any) {
+        this.logger.warn(`WhatsApp failed: ${err.message}`);
+      }
+    }
+    this.logger.log(`[DEV WhatsApp] To: ${dto.phone} | ${dto.message}`);
+    return { success: true, provider: 'console' };
+  }
+
   async sendOtp(phone: string, otp: string): Promise<{ success: boolean; provider: string }> {
     return this.sendSms({
       phone,

@@ -33,9 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
         await storage.write(key: StorageKeys.refreshToken, value: res['refreshToken'] as String);
       }
       await storage.write(key: StorageKeys.userId, value: res['user']['id'] as String);
-      await storage.write(key: StorageKeys.userRole, value: res['user']['role'] as String);
+      final role = res['user']['role'] as String? ?? 'PASSENGER';
+      await storage.write(key: StorageKeys.userRole, value: role);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      // Drivers get the trip cockpit; everyone else gets the passenger app.
+      Navigator.pushReplacementNamed(context, role == 'DRIVER' ? AppRoutes.home : AppRoutes.passengerHome);
     } catch (e) {
       // Distinguish a real 401 from a connectivity problem.
       String msg;

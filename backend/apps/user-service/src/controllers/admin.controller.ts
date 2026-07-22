@@ -1,6 +1,16 @@
-import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Query, Request, Header, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from '../services/admin.service';
+import { SettlementService } from '../services/settlement.service';
+import { CompanyService } from '../services/company.service';
+import { CatalogService } from '../services/catalog.service';
+import { ComplianceService } from '../services/compliance.service';
+import { AuditService, AuditInterceptor } from '../services/audit.service';
+import { BroadcastService } from '../services/broadcast.service';
+import { SupportService } from '../services/support.service';
+import { PlatformOpsService } from '../services/platform-ops.service';
+import { LedgerService } from '../services/ledger.service';
+import { LendingService } from '../services/lending.service';
 import { DisputeService } from '../services/dispute.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -10,13 +20,318 @@ import { UserRole } from '@app/common';
 @ApiTags('Admin')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(AuditInterceptor)
 @Roles(UserRole.SUPER_ADMIN)
 @Controller('admin')
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly settlementService: SettlementService,
+    private readonly companyService: CompanyService,
+    private readonly catalogService: CatalogService,
+    private readonly complianceService: ComplianceService,
+    private readonly auditService: AuditService,
+    private readonly broadcastService: BroadcastService,
+    private readonly supportService: SupportService,
+    private readonly platformOps: PlatformOpsService,
+    private readonly ledgerService: LedgerService,
+    private readonly lendingService: LendingService,
     private readonly disputeService: DisputeService,
   ) {}
+
+  // ---- Operator lending (#12) -------------------------------------------
+
+  @Get('lending')
+  @ApiOperation({ summary: 'All operator loans' })
+  loans(@Query('status') status?: string) {
+    return this.lendingService.listAll(status);
+  }
+
+  @Post('lending/:id/approve')
+  @ApiOperation({ summary: 'Approve a loan request' })
+  approveLoan(@Param('id') id: string) {
+    return this.lendingService.setStatus(id, 'APPROVED');
+  }
+
+  @Post('lending/:id/disburse')
+  @ApiOperation({ summary: 'Mark a loan disbursed (auto-repays from payouts)' })
+  disburseLoan(@Param('id') id: string) {
+    return this.lendingService.setStatus(id, 'DISBURSED');
+  }
+
+  // ---- Double-entry ledger (#6) -----------------------------------------
+
+  @Get('ledger')
+  @ApiOperation({ summary: 'Recent ledger entries (book of record)' })
+  ledger(@Query('limit') limit?: string) {
+    return this.ledgerService.recent(limit ? Number(limit) : 100);
+  }
+
+  @Get('ledger/balances')
+  @ApiOperation({ summary: 'Net balance per account (+ net-zero reconciliation check)' })
+  ledgerBalances() {
+    return this.ledgerService.balances();
+  }
+
+  // ---- Fraud rules engine (#7) ------------------------------------------
+
+  @Get('fraud/rules')
+  @ApiOperation({ summary: 'Configurable fraud thresholds' })
+  getFraudRules() { return this.catalogService.getFraudRules(); }
+
+  @Put('fraud/rules')
+  @ApiOperation({ summary: 'Update fraud thresholds / blocklist' })
+  setFraudRules(@Body() body: any) { return this.catalogService.setFraudRules(body); }
+
+  @Get('fraud/evaluate')
+  @ApiOperation({ summary: 'Evaluate fraud signals against current rules' })
+  fraudEvaluate() { return this.platformOps.fraudSignals(); }
+
+  // ---- Finance / tax exports (#8) ---------------------------------------
+
+  @Get('exports/bookings.csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="bookings.csv"')
+  @ApiOperation({ summary: 'CONFIRMED bookings with GST breakdown (CSV)' })
+  exportBookings(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.platformOps.exportBookingsCsv(from, to);
+  }
+
+  @Get('exports/payments.csv')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="payments.csv"')
+  @ApiOperation({ summary: 'Payments ledger (CSV)' })
+  exportPayments(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.platformOps.exportPaymentsCsv(from, to);
+  }
+
+  // ---- System health (#9) -----------------------------------------------
+
+  @Get('system-health')
+  @ApiOperation({ summary: 'DB status, counts, uptime, memory' })
+  systemHealth() { return this.platformOps.systemHealth(); }
+
+  // ---- Support / ticketing ----------------------------------------------
+
+  @Get('support')
+  @ApiOperation({ summary: 'Support tickets with SLA state' })
+  supportList(@Query('status') status?: string) {
+    return this.supportService.list(status);
+  }
+
+  @Get('support/canned')
+  @ApiOperation({ summary: 'Canned reply templates' })
+  supportCanned() {
+    return this.catalogService.getCannedReplies();
+  }
+
+  @Put('support/canned')
+  setSupportCanned(@Body() body: { replies: Array<{ title: string; body: string }> }) {
+    return this.catalogService.setCannedReplies(body.replies);
+  }
+
+  @Get('support/:id')
+  @ApiOperation({ summary: 'A ticket with its message thread' })
+  supportGet(@Param('id') id: string) {
+    return this.supportService.get(id);
+  }
+
+  @Post('support/:id/reply')
+  @ApiOperation({ summary: 'Reply to a ticket (public reply or internal note)' })
+  supportReply(@Param('id') id: string, @Body() body: { body: string; isInternal?: boolean }, @Request() req) {
+    return this.supportService.reply(id, body.body, { id: req.user?.sub, role: req.user?.role }, body.isInternal);
+  }
+
+  @Patch('support/:id')
+  @ApiOperation({ summary: 'Update ticket status / priority / assignment' })
+  supportUpdate(@Param('id') id: string, @Body() body: any) {
+    return this.supportService.update(id, body);
+  }
+
+  // ---- Broadcast center -------------------------------------------------
+
+  @Get('broadcasts')
+  @ApiOperation({ summary: 'Broadcast history' })
+  broadcasts() {
+    return this.broadcastService.history();
+  }
+
+  @Get('broadcasts/segment-size')
+  @ApiOperation({ summary: 'Recipient count for a segment' })
+  segmentSize(@Query('segment') segment: string) {
+    return this.broadcastService.segmentSize(segment || 'ALL');
+  }
+
+  @Post('broadcasts')
+  @ApiOperation({ summary: 'Send a broadcast (SMS/WhatsApp) to a user segment' })
+  sendBroadcast(@Body() body: any, @Request() req) {
+    return this.broadcastService.send(body, req.user?.sub);
+  }
+
+  // ---- Audit log + RBAC editor ------------------------------------------
+
+  @Get('audit-logs')
+  @ApiOperation({ summary: 'Recent admin actions (audit trail)' })
+  auditLogs(@Query('limit') limit?: string) {
+    return this.auditService.list(limit ? Number(limit) : 100);
+  }
+
+  @Get('flags')
+  @ApiOperation({ summary: 'Feature flags (with kill-switches)' })
+  getFlags() {
+    return this.catalogService.getFlags();
+  }
+
+  @Put('flags')
+  @ApiOperation({ summary: 'Toggle feature flags' })
+  setFlags(@Body() body: Record<string, boolean>) {
+    return this.catalogService.setFlags(body);
+  }
+
+  @Get('rbac')
+  @ApiOperation({ summary: 'Role → capability permission matrix' })
+  getRbac() {
+    return this.catalogService.getRbac();
+  }
+
+  @Put('rbac')
+  @ApiOperation({ summary: 'Update the permission matrix' })
+  setRbac(@Body() body: { matrix: Record<string, string[]> }) {
+    return this.catalogService.setRbac(body.matrix);
+  }
+
+  // ---- Compliance / KYC -------------------------------------------------
+
+  @Get('compliance/expiring')
+  @ApiOperation({ summary: 'Documents expired or expiring soon (alert queue)' })
+  complianceExpiring(@Query('days') days?: string) {
+    return this.complianceService.expiring(days ? Number(days) : 30);
+  }
+
+  @Get('compliance')
+  @ApiOperation({ summary: 'All compliance documents (optionally filtered)' })
+  complianceList(@Query('ownerType') ownerType?: string, @Query('ownerId') ownerId?: string) {
+    return this.complianceService.list({ ownerType, ownerId });
+  }
+
+  @Post('compliance')
+  @ApiOperation({ summary: 'Add a compliance document (permit/fitness/licence/CNIC…)' })
+  addCompliance(@Body() body: any) {
+    return this.complianceService.create(body);
+  }
+
+  @Patch('compliance/:id/verify')
+  @ApiOperation({ summary: 'Verify or reject a document' })
+  verifyCompliance(@Param('id') id: string, @Body() body: { status: string; notes?: string }) {
+    return this.complianceService.verify(id, body.status, body.notes);
+  }
+
+  @Delete('compliance/:id')
+  deleteCompliance(@Param('id') id: string) {
+    return this.complianceService.remove(id);
+  }
+
+  // ---- CMS / catalog ----------------------------------------------------
+
+  @Get('catalog/cities')
+  @ApiOperation({ summary: 'All cities (incl. inactive)' })
+  adminCities() { return this.catalogService.listCities(false); }
+
+  @Post('catalog/cities')
+  @ApiOperation({ summary: 'Add a city' })
+  addCity(@Body() body: any) { return this.catalogService.createCity(body); }
+
+  @Patch('catalog/cities/:id')
+  updateCity(@Param('id') id: string, @Body() body: any) { return this.catalogService.updateCity(id, body); }
+
+  @Delete('catalog/cities/:id')
+  deleteCity(@Param('id') id: string) { return this.catalogService.deleteCity(id); }
+
+  @Get('catalog/banners')
+  @ApiOperation({ summary: 'All banners (incl. inactive)' })
+  adminBanners() { return this.catalogService.listBanners(undefined, false); }
+
+  @Post('catalog/banners')
+  addBanner(@Body() body: any) { return this.catalogService.createBanner(body); }
+
+  @Patch('catalog/banners/:id')
+  updateBanner(@Param('id') id: string, @Body() body: any) { return this.catalogService.updateBanner(id, body); }
+
+  @Delete('catalog/banners/:id')
+  deleteBanner(@Param('id') id: string) { return this.catalogService.deleteBanner(id); }
+
+  @Get('catalog/fare-rules')
+  getFareRules() { return this.catalogService.getFareRules(); }
+
+  @Put('catalog/fare-rules')
+  @ApiOperation({ summary: 'Set the fare governor (min/max fare, surge cap)' })
+  setFareRules(@Body() body: any) { return this.catalogService.setFareRules(body); }
+
+  // ---- Multi-tenant: companies -----------------------------------------
+
+  @Get('companies')
+  @ApiOperation({ summary: 'All operators with plan, status, limits and usage' })
+  companies() {
+    return this.companyService.list();
+  }
+
+  @Patch('companies/:companyId')
+  @ApiOperation({ summary: 'Update a company plan / limits / branding' })
+  updateCompany(@Param('companyId') companyId: string, @Body() body: any) {
+    return this.companyService.update(companyId, body);
+  }
+
+  @Post('companies/:companyId/suspend')
+  @ApiOperation({ summary: 'Suspend a company (also blocks the operator login)' })
+  suspendCompany(@Param('companyId') companyId: string) {
+    return this.companyService.setSuspended(companyId, true);
+  }
+
+  @Post('companies/:companyId/activate')
+  @ApiOperation({ summary: 'Reactivate a suspended company' })
+  activateCompany(@Param('companyId') companyId: string) {
+    return this.companyService.setSuspended(companyId, false);
+  }
+
+  // ---- Settlements (operator payouts) -----------------------------------
+
+  @Get('settlements/summary')
+  @ApiOperation({ summary: 'Per-operator payable: gross → commission → net → outstanding' })
+  settlementSummary() {
+    return this.settlementService.summary();
+  }
+
+  @Get('settlements')
+  @ApiOperation({ summary: 'List generated settlements (payout records)' })
+  settlements(@Query('status') status?: string) {
+    return this.settlementService.list(status);
+  }
+
+  @Post('settlements/generate')
+  @ApiOperation({ summary: 'Snapshot an operator’s outstanding amount as a PENDING settlement' })
+  generateSettlement(@Body() body: { companyId: string }) {
+    return this.settlementService.generate(body.companyId);
+  }
+
+  @Post('settlements/:id/pay')
+  @ApiOperation({ summary: 'Mark a settlement as paid out' })
+  paySettlement(@Param('id') id: string, @Body() body: { reference?: string }) {
+    return this.settlementService.markPaid(id, body?.reference);
+  }
+
+  // ---- Payments & refunds -----------------------------------------------
+
+  @Get('payments')
+  @ApiOperation({ summary: 'Recent payments (with PNR) for the refunds console' })
+  payments(@Query('limit') limit?: string) {
+    return this.adminService.listPayments(limit ? Number(limit) : 50);
+  }
+
+  @Post('payments/:id/refund')
+  @ApiOperation({ summary: 'Refund a payment (full or partial) to the passenger wallet' })
+  refundPayment(@Param('id') id: string, @Body() body: { amount?: number; reason?: string }) {
+    return this.adminService.refundPayment(id, body?.amount, body?.reason);
+  }
 
   @Get('disputes')
   @ApiOperation({ summary: 'Disputes / refund-request / fraud queue' })

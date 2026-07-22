@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth.store';
 import { authApi } from '@/lib/api/endpoints';
+import { roleHome } from '@/lib/roleHome';
 import { Bus } from 'lucide-react';
 
 export default function LoginPage() {
@@ -20,7 +21,8 @@ export default function LoginPage() {
     try {
       const res: any = await authApi.login(form);
       setAuth(res.user, res.accessToken, res.refreshToken);
-      router.push('/');
+      // Send staff/admin roles straight to their console; passengers to home.
+      router.push(roleHome(res.user?.role));
     } catch (err: any) {
       setError(err.message);
     } finally {

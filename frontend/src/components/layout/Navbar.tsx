@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
-import { Bus, MapPin, Ticket, Star, User, LogOut, ShieldCheck } from 'lucide-react';
+import { roleHome, hasConsole } from '@/lib/roleHome';
+import { Bus, MapPin, Ticket, Star, User, LogOut, ShieldCheck, LayoutDashboard } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -33,6 +34,11 @@ export function Navbar() {
           <Link href="/verify-driver" className="hover:text-orange-600 flex items-center gap-1">
             <ShieldCheck size={15} /> Verify Driver
           </Link>
+          {isAuthenticated && hasConsole(user?.role) && (
+            <Link href={roleHome(user?.role)} className="text-orange-600 font-semibold flex items-center gap-1">
+              <LayoutDashboard size={15} /> Console
+            </Link>
+          )}
           {isAuthenticated && (
             <>
               <Link href="/my-bookings" className="hover:text-orange-600 flex items-center gap-1">

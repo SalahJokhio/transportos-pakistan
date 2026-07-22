@@ -7,10 +7,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError, In } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Repository, DataSource, QueryFailedError, In, LessThan } from 'typeorm';
 import { Booking } from '../entities/booking.entity';
 import { BookingSeat } from '../entities/booking-seat.entity';
+import { FunnelEvent } from '../entities/funnel-event.entity';
 import { CreateBookingDto, CancelBookingDto } from '../dto/booking.dto';
+import { CouponService } from './coupon.service';
 import { BookingStatus, PaymentStatus, StringUtil } from '@app/common';
 import { Payment } from '../../../payment-service/src/entities/payment.entity';
 import { SeatLockService } from './seat-lock.service';
@@ -34,6 +37,7 @@ export class BookingService {
 
   constructor(
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
+    @InjectRepository(FunnelEvent) private readonly funnelRepo: Repository<FunnelEvent>,
     @InjectRepository(BookingSeat) private readonly bookingSeatRepo: Repository<BookingSeat>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(LoyaltyTransaction) private readonly loyaltyRepo: Repository<LoyaltyTransaction>,
@@ -42,6 +46,7 @@ export class BookingService {
     @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
     private readonly seatLockService: SeatLockService,
     private readonly pricingService: PricingService,
+    private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
     private readonly dataSource: DataSource,
   ) {}
@@ -56,6 +61,10 @@ export class BookingService {
       const routeStr = route ? `${route.originCity} → ${route.destinationCity}` : 'your trip';
       const departure = trip ? new Date(trip.departureTime).toLocaleString('en-PK') : '';
       await this.notificationService.sendBookingConfirmation(user.phone, booking.pnr, routeStr, departure);
+      // WhatsApp-first for Pakistan — send the same confirmation on WhatsApp too.
+      this.notificationService
+        .sendWhatsApp({ phone: user.phone, message: `✅ Booking confirmed! PNR ${booking.pnr}, ${routeStr}, ${departure}. Seats: ${booking.seatNumbers.join(', ')}` })
+        .catch(() => undefined);
     } catch (err: any) {
       this.logger.warn(`Confirmation SMS failed for ${booking.pnr}: ${err.message}`);
     }
@@ -99,6 +108,14 @@ export class BookingService {
     opts: { passengerId: string; bookedById?: string; lockHolderId: string },
   ): Promise<Booking> {
     const { passengerId, bookedById, lockHolderId } = opts;
+
+    // Idempotency: a retried/double-tapped checkout with the same key returns
+    // the original booking instead of creating (and charging for) a second one.
+    if (dto.idempotencyKey) {
+      const dupe = await this.bookingRepo.findOne({ where: { idempotencyKey: dto.idempotencyKey } });
+      if (dupe) return dupe;
+    }
+
     const trip = await this.tripRepo.findOne({ where: { id: dto.tripId } });
     if (!trip) throw new NotFoundException('Trip not found');
 
@@ -127,20 +144,38 @@ export class BookingService {
     const price = this.pricingService.calculate(Number(trip.basePrice), dto.seatNumbers.length);
     const pnr = StringUtil.generateReference('TOS');
 
-    return this.dataSource.transaction(async (em) => {
+    // Apply a promo code on top of any base discount (validated server-side
+    // against the real subtotal — the client can't inflate the discount).
+    let discountAmount = Number(price.discount);
+    let finalAmount = Number(price.total);
+    let appliedCoupon: string | undefined;
+    if (dto.promoCode) {
+      const res = await this.couponService.validate(dto.promoCode, Number(price.subtotal));
+      if (res.valid && res.discount > 0) {
+        discountAmount += res.discount;
+        finalAmount = Math.max(0, finalAmount - res.discount);
+        appliedCoupon = res.code;
+      }
+    }
+
+    const saved = await this.dataSource.transaction(async (em) => {
       const booking = em.create(Booking, {
         pnr,
+        idempotencyKey: dto.idempotencyKey,
+        paymentMode: dto.paymentMode === 'COUNTER' ? 'COUNTER' : 'ONLINE',
+        boardingPoint: dto.boardingPoint,
+        dropoffPoint: dto.dropoffPoint,
         tripId: dto.tripId,
         passengerId,
         bookedById,
         seatNumbers: dto.seatNumbers,
         passengerDetails: dto.passengerDetails,
         totalAmount: price.subtotal,
-        discountAmount: price.discount,
-        finalAmount: price.total,
+        discountAmount,
+        finalAmount,
         status: BookingStatus.PENDING_PAYMENT,
       });
-      const saved = await em.save(Booking, booking);
+      const created = await em.save(Booking, booking);
 
       // One HELD seat row per seat. HELD rows are not covered by the partial
       // unique index, so concurrent bookings can co-exist until one confirms.
@@ -148,15 +183,19 @@ export class BookingService {
         em.create(BookingSeat, {
           tripId: dto.tripId,
           seatNumber,
-          bookingId: saved.id,
+          bookingId: created.id,
           passengerId,
           gender: seatGender[seatNumber] ?? null,
           status: 'HELD' as const,
         }),
       );
       await em.save(BookingSeat, seatRows);
-      return saved;
+      return created;
     });
+
+    // Count the redemption once the booking exists (best-effort).
+    if (appliedCoupon) await this.couponService.redeem(appliedCoupon).catch(() => undefined);
+    return saved;
   }
 
   /** Neighbour column within a 2-seat block: (1,2) and (3,4) are pairs. */
@@ -211,6 +250,26 @@ export class BookingService {
     return booking;
   }
 
+  /**
+   * Geofenced arrival alert: SMS every confirmed passenger on a trip that the
+   * bus is arriving. The geofence trigger fires from the driver app when it
+   * nears the destination; this fans the notice out to passengers.
+   */
+  async notifyArrival(tripId: string): Promise<{ tripId: string; notified: number }> {
+    const bookings = await this.bookingRepo.find({ where: { tripId, status: BookingStatus.CONFIRMED } });
+    let notified = 0;
+    for (const b of bookings) {
+      const user = await this.userRepo.findOne({ where: { id: b.passengerId } });
+      if (user?.phone) {
+        this.notificationService
+          .sendSms({ phone: user.phone, message: `TransportOS: Your bus (PNR ${b.pnr}) is arriving soon. Please be ready.` })
+          .catch(() => undefined);
+        notified++;
+      }
+    }
+    return { tripId, notified };
+  }
+
   async findById(id: string): Promise<Booking> {
     const booking = await this.bookingRepo.findOne({ where: { id } });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -219,6 +278,48 @@ export class BookingService {
 
   async getUserBookings(userId: string): Promise<Booking[]> {
     return this.bookingRepo.find({ where: { passengerId: userId }, order: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Auto-expire abandoned checkouts: a booking left in PENDING_PAYMENT for >15
+   * minutes is cancelled and its seat holds released, so a user who never paid
+   * can't keep seats locked out of inventory. Runs every 5 minutes.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async expireStaleBookings() {
+    const cutoff = new Date(Date.now() - 15 * 60_000);
+    const stale = await this.bookingRepo.find({
+      // Only auto-expire ONLINE checkouts. COUNTER (cash-on-counter) holds wait
+      // for the agent to collect cash.
+      where: { status: BookingStatus.PENDING_PAYMENT, paymentMode: 'ONLINE', createdAt: LessThan(cutoff) },
+      take: 200,
+    });
+    if (!stale.length) return;
+    for (const b of stale) {
+      await this.bookingRepo.update(b.id, {
+        status: BookingStatus.CANCELLED,
+        cancellationReason: 'Payment not completed (auto-expired)',
+        cancelledAt: new Date(),
+      });
+      await this.seatLockService.release(b.tripId, b.seatNumbers).catch(() => undefined);
+    }
+    this.logger.log(`Expired ${stale.length} stale PENDING_PAYMENT booking(s)`);
+  }
+
+  /** Counter agent collected cash for a COUNTER-mode reservation → confirm it. */
+  async collectCash(id: string): Promise<Booking> {
+    const booking = await this.findById(id);
+    if (booking.status === BookingStatus.CONFIRMED) return booking;
+    if (booking.status !== BookingStatus.PENDING_PAYMENT) {
+      throw new BadRequestException(`Cannot collect cash for a ${booking.status} booking`);
+    }
+    return this.confirm(id, `CASH-${Date.now()}`);
+  }
+
+  /** Record a booking-funnel step (search → seat_select → pay_start → pay_done). */
+  async recordFunnel(stage: string, meta: { sessionId?: string; tripId?: string; userId?: string } = {}) {
+    await this.funnelRepo.save(this.funnelRepo.create({ stage, ...meta })).catch(() => undefined);
+    return { ok: true };
   }
 
   async cancel(id: string, dto: CancelBookingDto, userId: string): Promise<Booking> {

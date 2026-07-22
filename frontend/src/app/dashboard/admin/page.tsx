@@ -3,13 +3,21 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api/admin';
+import { FinanceConsole } from '@/components/admin/FinanceConsole';
+import { CompaniesConsole } from '@/components/admin/CompaniesConsole';
+import { CatalogConsole } from '@/components/admin/CatalogConsole';
+import { ComplianceConsole } from '@/components/admin/ComplianceConsole';
+import { AccessConsole } from '@/components/admin/AccessConsole';
+import { BroadcastConsole } from '@/components/admin/BroadcastConsole';
+import { SupportConsole } from '@/components/admin/SupportConsole';
+import { SystemConsole } from '@/components/admin/SystemConsole';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
   ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'users' | 'operators' | 'revenue' | 'disputes';
+type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'revenue' | 'settlements' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -122,14 +130,14 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — horizontally scrollable so the 13 tabs never overflow the page */}
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1 border-t">
-            {(['overview', 'users', 'operators', 'revenue', 'disputes'] as Tab[]).map((tab) => (
+          <div className="flex gap-1 border-t overflow-x-auto">
+            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-5 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-4 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
                   activeTab === tab
                     ? 'border-red-600 text-red-600'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -494,6 +502,30 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ── COMPANIES (multi-tenant) TAB ── */}
+        {activeTab === 'companies' && <CompaniesConsole />}
+
+        {/* ── CATALOG / CMS TAB ── */}
+        {activeTab === 'catalog' && <CatalogConsole />}
+
+        {/* ── COMPLIANCE / KYC TAB ── */}
+        {activeTab === 'compliance' && <ComplianceConsole />}
+
+        {/* ── ACCESS (audit + RBAC) TAB ── */}
+        {activeTab === 'access' && <AccessConsole />}
+
+        {/* ── BROADCAST TAB ── */}
+        {activeTab === 'broadcast' && <BroadcastConsole />}
+
+        {/* ── SUPPORT / TICKETING TAB ── */}
+        {activeTab === 'support' && <SupportConsole />}
+
+        {/* ── SYSTEM (health / fraud / exports) TAB ── */}
+        {activeTab === 'system' && <SystemConsole />}
+
+        {/* ── SETTLEMENTS / REFUNDS TAB ── */}
+        {activeTab === 'settlements' && <FinanceConsole />}
 
         {/* ── DISPUTES / FRAUD TAB ── */}
         {activeTab === 'disputes' && (

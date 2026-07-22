@@ -33,6 +33,8 @@ dependencies:
   # Camera / gallery for incident + expense report photos
   image_picker: ^1.1.2
   http: ^1.2.0
+  # In-app gateway checkout (JazzCash/EasyPaisa page redirection)
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:

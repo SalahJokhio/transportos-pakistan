@@ -1,13 +1,15 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { PricingAiService } from './pricing-ai.service';
 
 @ApiTags('AI')
 @Controller('ai')
 export class AiController {
-  @Get('price-suggestion')
-  @ApiOperation({ summary: 'Dynamic pricing suggestion for a route' })
-  priceSuggestion(@Query('routeId') routeId: string, @Query('date') date: string) {
-    // TODO: ML model for demand-based pricing
-    return { routeId, date, suggestedMultiplier: 1.0, reason: 'Normal demand' };
+  constructor(private readonly pricing: PricingAiService) {}
+
+  @Get('price-suggestion/:tripId')
+  @ApiOperation({ summary: 'Demand-based dynamic pricing suggestion for a trip' })
+  priceSuggestion(@Param('tripId') tripId: string) {
+    return this.pricing.suggestForTrip(tripId);
   }
 }

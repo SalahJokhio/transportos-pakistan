@@ -29,6 +29,23 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   customerPhone?: string;
+
+  // Idempotency: the client sends the same key on retries of one checkout, so a
+  // double-tapped "Book" returns the original booking instead of a duplicate.
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  idempotencyKey?: string;
+
+  // ONLINE | COUNTER (cash-on-counter reservation, pay at the counter later).
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  paymentMode?: string;
+
+  // Chosen boarding / drop-off point (from the route's named points).
+  @ApiPropertyOptional() @IsString() @IsOptional() boardingPoint?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() dropoffPoint?: string;
 }
 
 export class CancelBookingDto {

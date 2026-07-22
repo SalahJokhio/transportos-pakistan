@@ -1,21 +1,39 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as crypto from 'crypto';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Repository, In, LessThan } from 'typeorm';
 import { PaymentStatus } from '@app/common';
 import { Payment } from './entities/payment.entity';
+import { PaymentConfigService } from './config/payment.config';
+import { JazzCashProvider } from './providers/jazzcash.provider';
+import { EasypaisaProvider } from './providers/easypaisa.provider';
+import { PaymentProvider } from './providers/payment-provider.interface';
 import { BookingService } from '../../booking-service/src/services/booking.service';
 import { WalletService } from '../../user-service/src/services/wallet.service';
+import { LedgerService } from '../../user-service/src/services/ledger.service';
 
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
+  private readonly providers: Record<string, PaymentProvider>;
 
   constructor(
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
+    private readonly cfg: PaymentConfigService,
+    private readonly jazzcash: JazzCashProvider,
+    private readonly easypaisa: EasypaisaProvider,
     private readonly bookingService: BookingService,
     private readonly walletService: WalletService,
-  ) {}
+    private readonly ledger: LedgerService,
+  ) {
+    this.providers = { jazzcash: this.jazzcash, easypaisa: this.easypaisa };
+  }
+
+  private provider(method: string): PaymentProvider {
+    const p = this.providers[method];
+    if (!p) throw new BadRequestException(`Unsupported payment method: ${method}`);
+    return p;
+  }
 
   /**
    * Pay for a booking from the passenger's wallet: debit the balance (throws if
@@ -46,26 +64,21 @@ export class PaymentService {
   }
 
   /**
-   * Start a payment for a booking. Idempotent on `idempotencyKey` (defaults to
-   * bookingId): retrying never creates a second charge — it returns the existing
-   * payment's gateway request. The amount is taken from the booking itself, not
-   * the client, so it can't be tampered with.
+   * Start a gateway payment for a booking. Idempotent on `idempotencyKey`
+   * (defaults to bookingId): retrying never creates a second charge — it returns
+   * the existing payment's gateway request. The amount comes from the booking,
+   * not the client, so it can't be tampered with.
    */
-  async initiate(
-    bookingId: string,
-    method: 'jazzcash' | 'easypaisa',
-    idempotencyKey?: string,
-  ) {
+  async initiate(bookingId: string, method: 'jazzcash' | 'easypaisa', idempotencyKey?: string) {
+    const provider = this.provider(method);
     const key = idempotencyKey || bookingId;
 
     const existing = await this.paymentRepo.findOne({ where: { idempotencyKey: key } });
     if (existing) {
-      // Already settled → hand back the result, do not re-charge.
       if (existing.status === PaymentStatus.COMPLETED) {
         return { reused: true, paymentId: existing.id, status: existing.status, bookingId };
       }
-      // In-flight → re-issue the same gateway request (same txn ref).
-      return this.buildGatewayRequest(method, existing);
+      return this.buildRequest(provider, existing, bookingId);
     }
 
     const booking = await this.bookingService.findById(bookingId); // 404 if missing
@@ -74,18 +87,32 @@ export class PaymentService {
         bookingId,
         provider: method,
         amount: booking.finalAmount,
-        status: PaymentStatus.PENDING,
+        // In-flight at the gateway. Settles to COMPLETED/FAILED via callback or reconcile.
+        status: PaymentStatus.PROCESSING,
         idempotencyKey: key,
         providerRef: `TOS${Date.now()}`,
       }),
     );
-    return this.buildGatewayRequest(method, payment);
+    return this.buildRequest(provider, payment, bookingId);
+  }
+
+  private async buildRequest(provider: PaymentProvider, payment: Payment, bookingId: string) {
+    const booking = await this.bookingService.findById(bookingId);
+    const req = provider.buildRequest({
+      paymentId: payment.id,
+      txnRefNo: payment.providerRef,
+      amount: Number(payment.amount),
+      bookingRef: booking.pnr,
+      description: `TransportOS ticket ${booking.pnr}`,
+    });
+    // Tell the client whether this is a real gateway redirect or the sandbox
+    // (mock) path, so checkout knows to POST to the gateway or call mock-confirm.
+    return { ...req, live: provider.isConfigured(), mode: this.cfg.mode };
   }
 
   /**
    * DEV / sandbox: simulate a successful gateway payment so the full UI flow
-   * (no real JazzCash account) can complete. Idempotent — calling twice confirms
-   * the booking only once.
+   * (no real merchant account) can complete. Idempotent.
    */
   async mockConfirm(bookingId: string) {
     const key = bookingId;
@@ -107,37 +134,25 @@ export class PaymentService {
   }
 
   async handleJazzCashCallback(payload: any) {
-    if (!this.verifyJazzCashHash(payload)) {
-      this.logger.warn('Rejected JazzCash callback: invalid secure hash');
-      return { success: false, message: 'Invalid signature' };
-    }
-    return this.settle(payload?.pp_TxnRefNo, payload?.pp_ResponseCode === '000');
-  }
-
-  /**
-   * Verify the JazzCash response secure hash (HMAC-SHA256 over the pp_* fields,
-   * sorted, salted) so a forged "success" POST can't confirm a booking without
-   * payment. In dev — no real integrity salt configured — verification is
-   * skipped so the sandbox/mock flow still works.
-   */
-  private verifyJazzCashHash(payload: any): boolean {
-    const salt = process.env.JAZZCASH_INTEGRITY_SALT;
-    if (!salt || salt.startsWith('your-')) return true; // dev: no real salt
-    const received = (payload?.pp_SecureHash || '').toString();
-    if (!received) return false;
-    const fields = Object.keys(payload)
-      .filter((k) => k.startsWith('pp_') && k !== 'pp_SecureHash' && payload[k] !== '' && payload[k] != null)
-      .sort()
-      .map((k) => payload[k]);
-    const computed = crypto
-      .createHmac('sha256', salt)
-      .update(`${salt}&${fields.join('&')}`)
-      .digest('hex');
-    return computed.toLowerCase() === received.toLowerCase();
+    return this.handleCallback(this.jazzcash, payload);
   }
 
   async handleEasypaisaCallback(payload: any) {
-    return this.settle(payload?.orderRefNum, payload?.responseCode === '0000');
+    return this.handleCallback(this.easypaisa, payload);
+  }
+
+  /**
+   * Shared gateway-callback path: verify the signature, then settle. A callback
+   * that fails signature verification is rejected outright (never allowed to
+   * mark a legitimate payment FAILED), guarding against forged POSTs.
+   */
+  private async handleCallback(provider: PaymentProvider, payload: any) {
+    const result = provider.verifyCallback(payload);
+    if (result.message === 'Invalid signature') {
+      this.logger.warn(`Rejected ${provider.name} callback: invalid signature`);
+      return { success: false, message: 'Invalid signature' };
+    }
+    return this.settle(result.txnRefNo, result.success);
   }
 
   /**
@@ -164,11 +179,16 @@ export class PaymentService {
     await this.paymentRepo.update(payment.id, { status: PaymentStatus.COMPLETED });
     try {
       await this.bookingService.confirm(payment.bookingId, payment.id);
+      // Book the sale into the double-entry ledger (gateway → operator + platform).
+      const commissionPct = Number(process.env.PLATFORM_COMMISSION_PCT ?? 10);
+      const commission = Math.round(Number(payment.amount) * commissionPct) / 100;
+      this.ledger.recordSale(payment.id, Number(payment.amount), commission, payment.bookingId).catch(() => undefined);
     } catch (err: any) {
-      // Seat was taken between booking and payment — refund path (booking stays
-      // unconfirmed). Surface so the caller can trigger a reversal.
-      this.logger.warn(`Confirm failed after payment ${payment.id}: ${err.message}`);
-      await this.paymentRepo.update(payment.id, { status: PaymentStatus.REFUNDED });
+      // Seat was taken between booking and payment: the charge went through but
+      // we can't seat the passenger. Reverse the money so nobody is charged for
+      // a seat they didn't get.
+      this.logger.warn(`Confirm failed after payment ${payment.id}: ${err.message} — reversing charge`);
+      await this.executeRefund(payment, Number(payment.amount), 'Seat no longer available');
       return { success: false, paymentId: payment.id, status: PaymentStatus.REFUNDED, message: err.message };
     }
     return { success: true, paymentId: payment.id, status: PaymentStatus.COMPLETED };
@@ -177,48 +197,121 @@ export class PaymentService {
   async getStatus(paymentId: string) {
     const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
     if (!payment) throw new NotFoundException('Payment not found');
-    return { paymentId: payment.id, bookingId: payment.bookingId, status: payment.status, amount: payment.amount };
-  }
-
-  // ---- gateway request builders (sandbox) --------------------------------
-
-  private buildGatewayRequest(method: 'jazzcash' | 'easypaisa', payment: Payment) {
-    return method === 'jazzcash'
-      ? this.buildJazzCashRequest(payment)
-      : this.buildEasypaisaRequest(payment);
-  }
-
-  private buildJazzCashRequest(payment: Payment) {
-    const merchantId = process.env.JAZZCASH_MERCHANT_ID || '';
-    const salt = process.env.JAZZCASH_INTEGRITY_SALT || '';
-    const dateTime = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-    const expiry = new Date(Date.now() + 30 * 60000).toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-    const amountPaisa = (Number(payment.amount) * 100).toFixed(0);
-    const txnRefNo = payment.providerRef;
-
-    const hashStr = `${salt}&${amountPaisa}&&&${dateTime}&${expiry}&${merchantId}&${txnRefNo}&PKR&MWALLET`;
-    const hash = crypto.createHmac('sha256', salt).update(hashStr).digest('hex');
-
     return {
-      method: 'jazzcash',
       paymentId: payment.id,
-      txnRefNo,
-      postUrl: 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/',
-      fields: { pp_Amount: amountPaisa, pp_TxnRefNo: txnRefNo, pp_MerchantID: merchantId, pp_SecureHash: hash },
+      bookingId: payment.bookingId,
+      status: payment.status,
+      amount: payment.amount,
+      refundedAmount: payment.refundedAmount,
     };
   }
 
-  private buildEasypaisaRequest(payment: Payment) {
-    return {
-      method: 'easypaisa',
-      paymentId: payment.id,
-      txnRefNo: payment.providerRef,
-      postUrl: 'https://easypaisa.com.pk/easypay/',
-      fields: {
-        orderRefNum: payment.providerRef,
-        amount: Number(payment.amount).toFixed(2),
-        storeId: process.env.EASYPAISA_STORE_ID,
+  // ---- refunds -----------------------------------------------------------
+
+  /**
+   * Refund a payment (full by default, or a partial `amount`). Wallet payments
+   * are credited back instantly; gateway payments go through the provider's
+   * refund API. Idempotent — a fully-refunded payment is not refunded again.
+   */
+  async refund(paymentId: string, amount?: number, reason?: string) {
+    const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== PaymentStatus.COMPLETED && payment.status !== PaymentStatus.REFUNDED) {
+      throw new BadRequestException(`Cannot refund a ${payment.status} payment`);
+    }
+    const remaining = Number(payment.amount) - Number(payment.refundedAmount);
+    const toRefund = amount != null ? Number(amount) : remaining;
+    if (toRefund <= 0 || toRefund > remaining) {
+      throw new BadRequestException(`Refundable amount is ${remaining}`);
+    }
+    return this.executeRefund(payment, toRefund, reason || 'Booking cancelled');
+  }
+
+  /** Moves the money back (wallet or gateway) and records the refund. */
+  private async executeRefund(payment: Payment, amount: number, reason: string) {
+    let ref: string | undefined;
+    if (payment.provider === 'wallet' || payment.provider === 'mock') {
+      const booking = await this.bookingService.findById(payment.bookingId);
+      await this.walletService.credit(booking.passengerId, amount, {
+        description: `Refund — ${booking.pnr} (${reason})`,
+        bookingId: payment.bookingId,
+      });
+      ref = `WREFUND${Date.now()}`;
+    } else {
+      const provider = this.provider(payment.provider);
+      const res = await provider.refund({ txnRefNo: payment.providerRef, amount, reason });
+      if (!res.success) {
+        this.logger.error(`Gateway refund failed for ${payment.id}: ${res.message}`);
+        return { success: false, paymentId: payment.id, message: res.message };
+      }
+      ref = res.ref;
+    }
+
+    const refundedTotal = Number(payment.refundedAmount) + amount;
+    await this.paymentRepo.update(payment.id, {
+      refundedAmount: refundedTotal,
+      status: refundedTotal >= Number(payment.amount) ? PaymentStatus.REFUNDED : payment.status,
+    });
+    this.ledger.recordRefund(payment.id, amount, payment.bookingId).catch(() => undefined);
+    return { success: true, paymentId: payment.id, refundedAmount: refundedTotal, ref };
+  }
+
+  /**
+   * Browser-return handler: the gateway redirects the passenger's browser here
+   * (POST/GET) after payment. Verify + settle, then resolve the booking PNR so
+   * the caller can send the user to their e-ticket (or a retry page).
+   */
+  async gatewayReturn(providerName: string, payload: any) {
+    const provider = this.providers[providerName];
+    if (!provider) return { status: 'failed' as const };
+    const verified = provider.verifyCallback(payload);
+    if (verified.message === 'Invalid signature') return { status: 'failed' as const };
+
+    const settleRes = await this.settle(verified.txnRefNo, verified.success);
+    const payment = await this.paymentRepo.findOne({ where: { providerRef: verified.txnRefNo } });
+    let pnr: string | undefined;
+    if (payment) {
+      try { pnr = (await this.bookingService.findById(payment.bookingId)).pnr; } catch { /* gone */ }
+    }
+    return { status: settleRes.success ? ('success' as const) : ('failed' as const), pnr, bookingId: payment?.bookingId };
+  }
+
+  // ---- reconciliation ----------------------------------------------------
+
+  /**
+   * Reconcile stuck payments: for every PENDING/PROCESSING payment older than
+   * `olderThanMinutes`, ask the gateway for the real status and settle. A
+   * Pakistani rail can drop a callback — this is how we never leave a paid
+   * booking unconfirmed (or an abandoned one blocking a seat). Run on a cron.
+   */
+  /** Runs the reconcile automatically so a dropped gateway callback self-heals. */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async reconcileCron() {
+    try { await this.reconcile(5); } catch (e: any) { this.logger.warn(`reconcile cron: ${e.message}`); }
+  }
+
+  async reconcile(olderThanMinutes = 5) {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60_000);
+    const stuck = await this.paymentRepo.find({
+      where: {
+        status: In([PaymentStatus.PENDING, PaymentStatus.PROCESSING]),
+        createdAt: LessThan(cutoff),
       },
-    };
+      take: 200,
+    });
+
+    let settled = 0;
+    let failed = 0;
+    let skipped = 0;
+    for (const payment of stuck) {
+      const provider = this.providers[payment.provider];
+      if (!provider || !provider.isConfigured()) { skipped++; continue; }
+      const status = await provider.queryStatus(payment.providerRef);
+      if (status.success) { await this.settle(payment.providerRef, true); settled++; }
+      else if (status.code) { await this.settle(payment.providerRef, false); failed++; }
+      else { skipped++; }
+    }
+    this.logger.log(`Reconcile: ${stuck.length} stuck, ${settled} settled, ${failed} failed, ${skipped} skipped`);
+    return { checked: stuck.length, settled, failed, skipped };
   }
 }

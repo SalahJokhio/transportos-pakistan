@@ -39,13 +39,55 @@ export const bookingApi = {
 };
 
 export const paymentApi = {
-  // amount is derived server-side from the booking (can't be tampered)
+  // amount is derived server-side from the booking (can't be tampered).
+  // Returns { live, mode, postUrl, fields, ... }: live=true means redirect to the
+  // real gateway; live=false means use mockConfirm (sandbox).
   initiate: (data: { bookingId: string; method: 'jazzcash' | 'easypaisa' }) =>
     post('/payments/initiate', data),
   // DEV/sandbox: simulate a successful payment and confirm the booking
   mockConfirm: (bookingId: string) => post('/payments/mock-confirm', { bookingId }),
   // Pay for a booking from the wallet balance
   payWithWallet: (bookingId: string) => post('/payments/wallet', { bookingId }),
+  status: (paymentId: string) => get(`/payments/${paymentId}/status`),
+  refund: (paymentId: string, data: { amount?: number; reason?: string } = {}) =>
+    post(`/payments/${paymentId}/refund`, data),
+};
+
+export const analyticsApi = {
+  overview: (companyId?: string) => get('/analytics/overview', companyId ? { params: { companyId } } : undefined),
+  funnel: (days = 14) => get('/analytics/funnel', { params: { days } }),
+  noShow: (companyId?: string) => get('/analytics/no-show', companyId ? { params: { companyId } } : undefined),
+  scheduleConflicts: () => get('/operator/schedule/conflicts'),
+  forecast: (companyId?: string) => get('/analytics/forecast', companyId ? { params: { companyId } } : undefined),
+  driverScorecards: (companyId?: string) => get('/analytics/driver-scorecards', companyId ? { params: { companyId } } : undefined),
+};
+
+export const assistantApi = {
+  chat: (message: string, history: any[] = []) => post('/assistant/chat', { message, history }),
+};
+
+export const eventsApi = {
+  // Fire-and-forget funnel tracking — never block the UI on it.
+  funnel: (stage: string, meta: { tripId?: string; sessionId?: string; userId?: string } = {}) => {
+    try { post('/events/funnel', { stage, ...meta }); } catch { /* ignore */ }
+  },
+};
+
+export const trackingApi = {
+  live: () => get('/tracking/live'),
+  eta: (tripId: string) => get(`/tracking/${tripId}/eta`),
+  history: (tripId: string) => get(`/tracking/${tripId}/history`),
+  notifyArrival: (tripId: string) => post(`/bookings/${tripId}/notify-arrival`),
+};
+
+export const aiApi = {
+  priceSuggestion: (tripId: string) => get(`/ai/price-suggestion/${tripId}`),
+};
+
+export const couponApi = {
+  validate: (code: string, amount: number) => post('/coupons/validate', { code, amount }),
+  list: () => get('/coupons'),
+  create: (data: any) => post('/coupons', data),
 };
 
 export const walletApi = {

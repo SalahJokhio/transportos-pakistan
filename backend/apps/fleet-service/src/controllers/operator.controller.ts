@@ -1,9 +1,12 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RouteService } from '../services/route.service';
+import { TerminalService } from '../services/terminal.service';
+import { ScheduleService } from '../services/schedule.service';
 import { BusService } from '../services/bus.service';
 import { TripService } from '../services/trip.service';
-import { CreateRouteDto, CreateBusDto, CreateTripDto } from '../dto/fleet.dto';
+import { CreateRouteDto, CreateBusDto, CreateTripDto, CreateEmployeeDto } from '../dto/fleet.dto';
+import { EmployeeService } from '../services/employee.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TripStatus } from '@app/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,8 +30,66 @@ export class OperatorController {
     private readonly tripReportService: TripReportService,
     private readonly fleetAnalyticsService: FleetAnalyticsService,
     private readonly driverRecordService: DriverRecordService,
+    private readonly employeeService: EmployeeService,
+    private readonly terminalService: TerminalService,
+    private readonly scheduleService: ScheduleService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
+
+  // ── Staff / HR ──────────────────────────────────────────────
+  @Get('employees/stats')
+  @ApiOperation({ summary: 'Staff headcount, on-duty/on-leave, monthly payroll, by-type' })
+  employeeStats(@Request() req) {
+    return this.employeeService.stats(req.user?.companyId || req.user?.sub);
+  }
+
+  // ── Attendance & payroll (#14) ───────────────────────────────
+  @Post('attendance')
+  @ApiOperation({ summary: 'Mark staff attendance for a date' })
+  markAttendance(@Body() body: any, @Request() req) {
+    return this.employeeService.markAttendance(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Get('attendance')
+  @ApiOperation({ summary: 'Attendance records (optionally by date)' })
+  listAttendance(@Query('date') date: string, @Request() req) {
+    return this.employeeService.listAttendance(req.user?.companyId || req.user?.sub, date);
+  }
+
+  @Get('payroll')
+  @ApiOperation({ summary: 'Monthly payroll summary (salary + attendance)' })
+  payroll(@Query('month') month: string, @Request() req) {
+    return this.employeeService.payroll(req.user?.companyId || req.user?.sub, month);
+  }
+
+  @Get('employees')
+  @ApiOperation({ summary: 'List company employees (filter by type/status/search)' })
+  employees(
+    @Request() req,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.employeeService.list(req.user?.companyId || req.user?.sub, { type, status, search });
+  }
+
+  @Post('employees')
+  @ApiOperation({ summary: 'Add an employee' })
+  createEmployee(@Body() dto: CreateEmployeeDto, @Request() req) {
+    return this.employeeService.create(dto as any, req.user?.companyId || req.user?.sub);
+  }
+
+  @Get('employees/:id')
+  @ApiOperation({ summary: 'Full employee record' })
+  employee(@Param('id') id: string, @Request() req) {
+    return this.employeeService.findOne(id, req.user?.companyId || req.user?.sub);
+  }
+
+  @Patch('employees/:id')
+  @ApiOperation({ summary: 'Update an employee' })
+  updateEmployee(@Param('id') id: string, @Body() patch: Partial<CreateEmployeeDto>, @Request() req) {
+    return this.employeeService.update(id, req.user?.companyId || req.user?.sub, patch as any);
+  }
 
   @Get('drivers')
   @ApiOperation({ summary: 'List drivers (with rating + trips) for assignment' })
@@ -40,6 +101,54 @@ export class OperatorController {
   @ApiOperation({ summary: 'Assign / reassign a driver to a trip' })
   assignDriver(@Param('tripId') tripId: string, @Body() body: { driverId: string }, @Request() req) {
     return this.tripService.assignDriver(tripId, body.driverId, req.user?.companyId || req.user?.sub);
+  }
+
+  // ── Terminals directory + boarding points ────────────────────
+  @Get('terminals')
+  @ApiOperation({ summary: 'List the operator’s terminals' })
+  listTerminals(@Query('city') city: string, @Request() req) {
+    return this.terminalService.list(req.user?.companyId || req.user?.sub, city);
+  }
+
+  @Post('terminals')
+  @ApiOperation({ summary: 'Add a terminal / boarding point' })
+  addTerminal(@Body() body: any, @Request() req) {
+    return this.terminalService.create(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Delete('terminals/:id')
+  removeTerminal(@Param('id') id: string, @Request() req) {
+    return this.terminalService.remove(id, req.user?.companyId || req.user?.sub);
+  }
+
+  // ── Recurring schedules ──────────────────────────────────────
+  @Get('schedules')
+  @ApiOperation({ summary: 'List recurring schedules' })
+  listSchedules(@Request() req) {
+    return this.scheduleService.list(req.user?.companyId || req.user?.sub);
+  }
+
+  @Post('schedules')
+  @ApiOperation({ summary: 'Create a recurring schedule (route + bus + time + days)' })
+  addSchedule(@Body() body: any, @Request() req) {
+    return this.scheduleService.create(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Delete('schedules/:id')
+  removeSchedule(@Param('id') id: string, @Request() req) {
+    return this.scheduleService.remove(id, req.user?.companyId || req.user?.sub);
+  }
+
+  @Post('schedules/generate')
+  @ApiOperation({ summary: 'Generate trips from schedules for the next 7 days' })
+  generateSchedules(@Request() req) {
+    return this.scheduleService.generate(req.user?.companyId || req.user?.sub);
+  }
+
+  @Get('schedule/conflicts')
+  @ApiOperation({ summary: 'Bus/driver double-booking conflicts (#10 scheduling)' })
+  scheduleConflicts(@Request() req) {
+    return this.fleetAnalyticsService.scheduleConflicts(req.user?.companyId || req.user?.sub);
   }
 
   @Get('fleet-report')

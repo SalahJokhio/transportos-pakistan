@@ -16,6 +16,28 @@ export class FleetAnalyticsService {
   ) {}
 
   /**
+   * Scheduling conflicts (#10): the same bus or driver assigned to two trips
+   * whose time windows overlap — a real dispatch error. Returns the clashing
+   * pairs so the operator can reassign before the day of travel.
+   */
+  async scheduleConflicts(companyId: string) {
+    const conflict = (col: 'busId' | 'driverId') =>
+      this.tripRepo.query(
+        `SELECT a.id AS "tripA", b.id AS "tripB", a."${col}" AS resource,
+                a."departureTime" AS "aDep", b."departureTime" AS "bDep"
+         FROM trips a
+         JOIN trips b ON a."${col}" = b."${col}" AND a.id < b.id
+         WHERE a."companyId" = $1 AND b."companyId" = $1
+           AND a.status NOT IN ('CANCELLED','ARRIVED') AND b.status NOT IN ('CANCELLED','ARRIVED')
+           AND (a."departureTime", a."estimatedArrivalTime") OVERLAPS (b."departureTime", b."estimatedArrivalTime")
+         LIMIT 100`,
+        [companyId],
+      );
+    const [busConflicts, driverConflicts] = await Promise.all([conflict('busId'), conflict('driverId')]);
+    return { busConflicts, driverConflicts, total: busConflicts.length + driverConflicts.length };
+  }
+
+  /**
    * Fleet profit/loss: for each bus, revenue (confirmed bookings on its trips)
    * minus expenses (driver refuel/expense reports), so an owner sees which bus
    * earns and which loses money.

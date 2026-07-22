@@ -20,6 +20,25 @@ export const operatorApi = {
   drivers: () => get('/operator/drivers'),
   assignDriver: (tripId: string, driverId: string) =>
     api.patch(`/operator/trips/${tripId}/driver`, { driverId }),
+
+  // Terminals + boarding points
+  getTerminals: (city?: string) => get('/operator/terminals', city ? { city } : undefined),
+  createTerminal: (data: any) => post('/operator/terminals', data),
+  removeTerminal: (id: string) => api.delete(`/operator/terminals/${id}`),
+
+  // Recurring schedules
+  getSchedules: () => get('/operator/schedules'),
+  createSchedule: (data: any) => post('/operator/schedules', data),
+  removeSchedule: (id: string) => api.delete(`/operator/schedules/${id}`),
+  generateSchedules: () => post('/operator/schedules/generate'),
+
+  // Staff / HR
+  employeeStats: () => get('/operator/employees/stats'),
+  employees: (params?: { type?: string; status?: string; search?: string }) =>
+    get('/operator/employees', params),
+  employee: (id: string) => get(`/operator/employees/${id}`),
+  createEmployee: (data: any) => post('/operator/employees', data),
+  updateEmployee: (id: string, patch: any) => api.patch(`/operator/employees/${id}`, patch),
 };
 
 // Base for uploaded photos (served outside the /api/v1 prefix)
