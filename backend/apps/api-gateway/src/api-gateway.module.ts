@@ -18,6 +18,7 @@ import { CargoModule } from '../../cargo-service/src/cargo.module';
 import { AutomationModule } from '../../automation-service/src/automation.module';
 import { WorkflowModule } from '../../automation-service/src/workflow/workflow.module';
 import { AgentsModule } from '../../automation-service/src/agents/agents.module';
+import { PolicyModule } from '../../automation-service/src/policy/policy.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -41,6 +42,7 @@ import { UploadController } from './upload.controller';
     AutomationModule, // Rules + Event Engine (global — exports EventBusService)
     WorkflowModule, // Approval Workflow Engine (emits WORKFLOW_* events)
     AgentsModule, // Department AI agents (Dispatch/Finance/Fleet)
+    PolicyModule, // Policy Engine (operating limits + violation checks)
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],
