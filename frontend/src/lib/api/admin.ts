@@ -138,3 +138,18 @@ export const automationApi = {
   alerts: (unread?: boolean) => g('/automation/alerts', { params: unread ? { unread: true } : {} }),
   markAlertRead: (id: string) => pc(`/automation/alerts/${id}/read`),
 };
+
+// Approval Workflow Engine
+export const workflowApi = {
+  listDefinitions: () => g('/workflows/definitions'),
+  createDefinition: (body: any) => p('/workflows/definitions', body),
+  updateDefinition: (id: string, patch: any) => pc(`/workflows/definitions/${id}`, patch),
+  removeDefinition: (id: string) => d(`/workflows/definitions/${id}`),
+  start: (body: any) => p('/workflows/instances', body),
+  listInstances: (status?: string) => g('/workflows/instances', { params: status ? { status } : {} }),
+  inbox: () => g('/workflows/instances/inbox'),
+  getInstance: (id: string) => g(`/workflows/instances/${id}`),
+  approve: (id: string, note?: string) => p(`/workflows/instances/${id}/approve`, { note }),
+  reject: (id: string, note?: string) => p(`/workflows/instances/${id}/reject`, { note }),
+  cancel: (id: string) => p(`/workflows/instances/${id}/cancel`),
+};
