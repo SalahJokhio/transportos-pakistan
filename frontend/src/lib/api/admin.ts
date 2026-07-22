@@ -163,6 +163,6 @@ export const copilotApi = {
 // Department AI Agents
 export const agentsApi = {
   overview: () => g('/agents/overview'),
-  run: (domain: 'dispatch' | 'finance' | 'fleet') => g(`/agents/${domain}`),
+  run: (domain: 'dispatch' | 'finance' | 'fleet' | 'hr' | 'crm' | 'workshop') => g(`/agents/${domain}`),
   act: (action: any, domain?: string) => p('/agents/act', { action, domain }),
 };

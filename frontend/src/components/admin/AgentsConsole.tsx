@@ -2,13 +2,17 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agentsApi } from '@/lib/api/admin';
-import { Radar, Wallet, Bus, Bot, CheckCircle, Bell, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Radar, Wallet, Bus, Bot, CheckCircle, Bell, AlertTriangle, AlertCircle, Info, Users, Headphones, Wrench, GitBranch } from 'lucide-react';
 
 const AGENTS = [
-  { id: 'dispatch' as const, label: 'Dispatch Agent', icon: Radar, blurb: 'Driver assignment, occupancy, delays' },
-  { id: 'finance' as const, label: 'Finance Agent', icon: Wallet, blurb: 'Revenue trend, cancels, COD exposure' },
-  { id: 'fleet' as const, label: 'Fleet Agent', icon: Bus, blurb: 'Idle buses, expiring compliance' },
+  { id: 'dispatch' as const, label: 'Dispatch', icon: Radar, blurb: 'Driver assignment, occupancy' },
+  { id: 'finance' as const, label: 'Finance', icon: Wallet, blurb: 'Revenue, cancels, COD' },
+  { id: 'fleet' as const, label: 'Fleet', icon: Bus, blurb: 'Idle buses, compliance' },
+  { id: 'hr' as const, label: 'HR', icon: Users, blurb: 'Leave, attendance, driver docs' },
+  { id: 'crm' as const, label: 'CRM', icon: Headphones, blurb: 'SLA breaches, urgent tickets' },
+  { id: 'workshop' as const, label: 'Workshop', icon: Wrench, blurb: 'Incidents, repair spend' },
 ];
+type Domain = typeof AGENTS[number]['id'];
 
 const SEV_ICON = { critical: AlertCircle, warning: AlertTriangle, info: Info } as const;
 const SEV_STYLE = {
@@ -17,7 +21,7 @@ const SEV_STYLE = {
 
 /** Department AI Agents: each analyzes live data and can act via the engines. */
 export function AgentsConsole() {
-  const [active, setActive] = useState<'dispatch' | 'finance' | 'fleet'>('dispatch');
+  const [active, setActive] = useState<Domain>('dispatch');
   const { data: overview } = useQuery({ queryKey: ['agents-overview'], queryFn: agentsApi.overview });
 
   return (
@@ -31,7 +35,7 @@ export function AgentsConsole() {
       </div>
 
       {/* Agent selector cards with severity badges */}
-      <div className="grid md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {AGENTS.map(({ id, label, icon: Icon, blurb }) => {
           const o = (overview as any)?.[id];
           return (
@@ -57,18 +61,20 @@ export function AgentsConsole() {
   );
 }
 
-function AgentInsights({ domain }: { domain: 'dispatch' | 'finance' | 'fleet' }) {
+function AgentInsights({ domain }: { domain: Domain }) {
   const qc = useQueryClient();
   const { data: insights = [], isLoading } = useQuery({ queryKey: ['agent', domain], queryFn: () => agentsApi.run(domain) });
-  const [acted, setActed] = useState<Record<string, boolean>>({});
+  const [acted, setActed] = useState<Record<string, string>>({});
 
   const act = useMutation({
     mutationFn: ({ action }: any) => agentsApi.act(action, domain),
-    onSuccess: (_r, vars: any) => {
-      setActed((a) => ({ ...a, [vars.id]: true }));
+    onSuccess: (res: any, vars: any) => {
+      setActed((a) => ({ ...a, [vars.id]: res?.kind === 'workflow' ? 'Approval started' : 'Alerted' }));
       qc.invalidateQueries({ queryKey: ['automation-alerts'] });
       qc.invalidateQueries({ queryKey: ['agents-overview'] });
+      qc.invalidateQueries({ queryKey: ['wf-instances'] });
     },
+    onError: (e: any, vars: any) => setActed((a) => ({ ...a, [vars.id]: 'ERR:' + (e?.response?.data?.message || 'failed') })),
   });
 
   if (isLoading) return <div className="card text-center py-10 text-slate-400 text-sm">Agent scanning…</div>;
@@ -92,10 +98,12 @@ function AgentInsights({ domain }: { domain: 'dispatch' | 'finance' | 'fleet' })
                 {i.metric && <span className="text-sm font-semibold text-gray-700">{i.metric}</span>}
                 {i.action && (
                   acted[i.id]
-                    ? <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={13} /> Alerted</span>
+                    ? acted[i.id].startsWith('ERR:')
+                      ? <span className="text-xs text-red-500 flex items-center gap-1" title={acted[i.id].slice(4)}><AlertCircle size={13} /> {acted[i.id].slice(4)}</span>
+                      : <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={13} /> {acted[i.id]}</span>
                     : <button onClick={() => act.mutate({ id: i.id, action: i.action })} disabled={act.isPending}
-                        className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-40">
-                        <Bell size={12} /> Create alert
+                        className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-40 whitespace-nowrap">
+                        {i.action.kind === 'workflow' ? <><GitBranch size={12} /> Start approval</> : <><Bell size={12} /> Create alert</>}
                       </button>
                 )}
               </div>
