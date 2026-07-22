@@ -166,3 +166,8 @@ export const agentsApi = {
   run: (domain: 'dispatch' | 'finance' | 'fleet' | 'hr' | 'crm' | 'workshop') => g(`/agents/${domain}`),
   act: (action: any, domain?: string) => p('/agents/act', { action, domain }),
 };
+
+// Digital Twin — what-if simulation
+export const simulationApi = {
+  run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
+};

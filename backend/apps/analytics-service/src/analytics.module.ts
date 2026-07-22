@@ -6,6 +6,8 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { ExecutiveCopilotController } from './executive-copilot.controller';
 import { ExecutiveCopilotService } from './executive-copilot.service';
+import { SimulationController } from './simulation.controller';
+import { SimulationService } from './simulation.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 
 @Module({
@@ -14,7 +16,7 @@ import { Booking } from '../../booking-service/src/entities/booking.entity';
     DatabaseModule,
     TypeOrmModule.forFeature([Booking]),
   ],
-  controllers: [AnalyticsController, ExecutiveCopilotController],
-  providers: [AnalyticsService, ExecutiveCopilotService],
+  controllers: [AnalyticsController, ExecutiveCopilotController, SimulationController],
+  providers: [AnalyticsService, ExecutiveCopilotService, SimulationService],
 })
 export class AnalyticsModule {}
