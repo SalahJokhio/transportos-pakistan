@@ -17,13 +17,14 @@ import { CopilotPanel } from '@/components/admin/CopilotPanel';
 import { AgentsConsole } from '@/components/admin/AgentsConsole';
 import { SimulationConsole } from '@/components/admin/SimulationConsole';
 import { PolicyConsole } from '@/components/admin/PolicyConsole';
+import { SlaConsole } from '@/components/admin/SlaConsole';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
   ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'copilot' | 'agents' | 'simulation' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'automation' | 'workflows' | 'policies' | 'revenue' | 'settlements' | 'disputes';
+type Tab = 'overview' | 'copilot' | 'agents' | 'simulation' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'automation' | 'workflows' | 'policies' | 'sla' | 'revenue' | 'settlements' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -139,7 +140,7 @@ export default function AdminDashboardPage() {
         {/* Tabs — horizontally scrollable so the 13 tabs never overflow the page */}
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1 border-t overflow-x-auto">
-            {(['overview', 'copilot', 'agents', 'simulation', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'automation', 'workflows', 'policies', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
+            {(['overview', 'copilot', 'agents', 'simulation', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'automation', 'workflows', 'policies', 'sla', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -541,6 +542,8 @@ export default function AdminDashboardPage() {
         {activeTab === 'simulation' && <SimulationConsole />}
 
         {activeTab === 'policies' && <PolicyConsole />}
+
+        {activeTab === 'sla' && <SlaConsole />}
 
         {/* ── SETTLEMENTS / REFUNDS TAB ── */}
         {activeTab === 'settlements' && <FinanceConsole />}
