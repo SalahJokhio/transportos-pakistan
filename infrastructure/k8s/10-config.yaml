@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: transportos
+data:
+  NODE_ENV: "production"
+  DATABASE_SSL: "true"
+  CORS_ORIGIN: "https://app.transportos.pk"
+  PLATFORM_COMMISSION_PCT: "10"
+---
+# Secret is a TEMPLATE — do NOT commit real values. Create it out-of-band, e.g.:
+#   kubectl -n transportos create secret generic backend-secrets \
+#     --from-literal=DATABASE_URL=postgres://... \
+#     --from-literal=JWT_SECRET=... --from-literal=JWT_REFRESH_SECRET=... \
+#     --from-literal=REDIS_HOST=... --from-literal=REDIS_PASSWORD=... \
+#     --from-literal=ANTHROPIC_API_KEY=...
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: transportos
+type: Opaque
+stringData:
+  DATABASE_URL: "REPLACE_ME"
+  JWT_SECRET: "REPLACE_ME"
+  JWT_REFRESH_SECRET: "REPLACE_ME"
+  REDIS_HOST: "REPLACE_ME"
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: "REPLACE_ME"
+  ANTHROPIC_API_KEY: ""
