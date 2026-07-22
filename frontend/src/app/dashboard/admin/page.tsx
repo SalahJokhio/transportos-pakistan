@@ -12,13 +12,14 @@ import { BroadcastConsole } from '@/components/admin/BroadcastConsole';
 import { SupportConsole } from '@/components/admin/SupportConsole';
 import { SystemConsole } from '@/components/admin/SystemConsole';
 import { AutomationConsole } from '@/components/admin/AutomationConsole';
+import { WorkflowConsole } from '@/components/admin/WorkflowConsole';
 import {
   Users, ShieldCheck, Bus, TrendingUp, Search, CheckCircle,
   XCircle, ChevronLeft, ChevronRight, AlertCircle, UserCog, Banknote,
   ShieldAlert, Flag,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'automation' | 'revenue' | 'settlements' | 'disputes';
+type Tab = 'overview' | 'users' | 'operators' | 'companies' | 'catalog' | 'compliance' | 'access' | 'broadcast' | 'support' | 'system' | 'automation' | 'workflows' | 'revenue' | 'settlements' | 'disputes';
 
 const ROLES = [
   'PASSENGER', 'BOOKING_AGENT', 'DRIVER', 'CALL_CENTER_AGENT',
@@ -134,7 +135,7 @@ export default function AdminDashboardPage() {
         {/* Tabs — horizontally scrollable so the 13 tabs never overflow the page */}
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1 border-t overflow-x-auto">
-            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'automation', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
+            {(['overview', 'users', 'operators', 'companies', 'catalog', 'compliance', 'access', 'broadcast', 'support', 'system', 'automation', 'workflows', 'revenue', 'settlements', 'disputes'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -526,6 +527,8 @@ export default function AdminDashboardPage() {
         {activeTab === 'system' && <SystemConsole />}
 
         {activeTab === 'automation' && <AutomationConsole />}
+
+        {activeTab === 'workflows' && <WorkflowConsole />}
 
         {/* ── SETTLEMENTS / REFUNDS TAB ── */}
         {activeTab === 'settlements' && <FinanceConsole />}

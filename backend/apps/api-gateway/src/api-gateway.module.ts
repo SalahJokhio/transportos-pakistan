@@ -16,6 +16,7 @@ import { AnalyticsModule } from '../../analytics-service/src/analytics.module';
 import { AssistantModule } from '../../assistant-service/src/assistant.module';
 import { CargoModule } from '../../cargo-service/src/cargo.module';
 import { AutomationModule } from '../../automation-service/src/automation.module';
+import { WorkflowModule } from '../../automation-service/src/workflow/workflow.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
 
@@ -36,6 +37,7 @@ import { UploadController } from './upload.controller';
     AssistantModule,
     CargoModule,
     AutomationModule, // Rules + Event Engine (global — exports EventBusService)
+    WorkflowModule, // Approval Workflow Engine (emits WORKFLOW_* events)
   ],
   controllers: [HealthController, UploadController],
 })
