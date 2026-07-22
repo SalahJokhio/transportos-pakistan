@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from '@app/database';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
+import { ExecutiveCopilotController } from './executive-copilot.controller';
+import { ExecutiveCopilotService } from './executive-copilot.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 
 @Module({
@@ -12,7 +14,7 @@ import { Booking } from '../../booking-service/src/entities/booking.entity';
     DatabaseModule,
     TypeOrmModule.forFeature([Booking]),
   ],
-  controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  controllers: [AnalyticsController, ExecutiveCopilotController],
+  providers: [AnalyticsService, ExecutiveCopilotService],
 })
 export class AnalyticsModule {}
