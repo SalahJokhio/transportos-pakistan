@@ -171,3 +171,10 @@ export const agentsApi = {
 export const simulationApi = {
   run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
 };
+
+// Policy Engine
+export const policyApi = {
+  get: () => g('/policies'),
+  update: (values: Record<string, number>) => pt('/policies', values),
+  check: (type: string, value: number) => p('/policies/check', { type, value }),
+};
