@@ -6,6 +6,7 @@ import { Route } from '../entities/route.entity';
 import { Bus } from '../entities/bus.entity';
 import { CreateTripDto, SearchTripsDto } from '../dto/fleet.dto';
 import { TripStatus, TransportType } from '@app/common';
+import { EventBusService } from '../../../automation-service/src/services/event-bus.service';
 
 @Injectable()
 export class TripService {
@@ -13,7 +14,26 @@ export class TripService {
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
     @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
+    private readonly eventBus: EventBusService,
   ) {}
+
+  /** Emit a trip lifecycle event (best-effort); DELAYED gets its own type. */
+  private async emitTripEvent(trip: Trip, previous?: TripStatus) {
+    try {
+      const payload = {
+        tripId: trip.id,
+        routeId: trip.routeId,
+        busId: trip.busId,
+        status: trip.status,
+        previousStatus: previous ?? null,
+        departureTime: trip.departureTime,
+      };
+      await this.eventBus.emit('TRIP_STATUS_CHANGED', payload, { companyId: trip.companyId, source: 'trip.status' });
+      if (trip.status === TripStatus.DELAYED) {
+        await this.eventBus.emit('TRIP_DELAYED', payload, { companyId: trip.companyId, source: 'trip.status' });
+      }
+    } catch { /* best-effort — never block the status change */ }
+  }
 
   async create(dto: CreateTripDto, companyId: string): Promise<Trip> {
     const bus = await this.busRepo.findOne({ where: { id: dto.busId } });
@@ -93,8 +113,11 @@ export class TripService {
   }
 
   async updateStatus(id: string, status: TripStatus): Promise<Trip> {
+    const before = await this.tripRepo.findOne({ where: { id } });
     await this.tripRepo.update(id, { status });
-    return this.findById(id);
+    const trip = await this.findById(id);
+    await this.emitTripEvent(trip, before?.status);
+    return trip;
   }
 
   /** Assign / reassign a driver to a trip (only the trip's own company). */
@@ -126,7 +149,9 @@ export class TripService {
       trip.status = TripStatus.ARRIVED;
       trip.actualArrivalTime = new Date();
     }
-    return this.tripRepo.save(trip);
+    const saved = await this.tripRepo.save(trip);
+    await this.emitTripEvent(saved);
+    return saved;
   }
 
   async getSeatMap(tripId: string) {

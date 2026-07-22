@@ -11,6 +11,7 @@ import { PaymentProvider } from './providers/payment-provider.interface';
 import { BookingService } from '../../booking-service/src/services/booking.service';
 import { WalletService } from '../../user-service/src/services/wallet.service';
 import { LedgerService } from '../../user-service/src/services/ledger.service';
+import { EventBusService } from '../../automation-service/src/services/event-bus.service';
 
 @Injectable()
 export class PaymentService {
@@ -25,6 +26,7 @@ export class PaymentService {
     private readonly bookingService: BookingService,
     private readonly walletService: WalletService,
     private readonly ledger: LedgerService,
+    private readonly eventBus: EventBusService,
   ) {
     this.providers = { jazzcash: this.jazzcash, easypaisa: this.easypaisa };
   }
@@ -173,10 +175,18 @@ export class PaymentService {
 
     if (!success) {
       await this.paymentRepo.update(payment.id, { status: PaymentStatus.FAILED });
+      this.eventBus.emit('PAYMENT_FAILED', {
+        paymentId: payment.id, bookingId: payment.bookingId,
+        amount: Number(payment.amount), provider: payment.provider,
+      }, { source: 'payment.settle' }).catch(() => undefined);
       return { success: false, paymentId: payment.id, status: PaymentStatus.FAILED };
     }
 
     await this.paymentRepo.update(payment.id, { status: PaymentStatus.COMPLETED });
+    this.eventBus.emit('PAYMENT_COMPLETED', {
+      paymentId: payment.id, bookingId: payment.bookingId,
+      amount: Number(payment.amount), provider: payment.provider,
+    }, { source: 'payment.settle' }).catch(() => undefined);
     try {
       await this.bookingService.confirm(payment.bookingId, payment.id);
       // Book the sale into the double-entry ledger (gateway → operator + platform).
