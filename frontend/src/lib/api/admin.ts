@@ -125,3 +125,16 @@ export const disputesApi = {
     p('/disputes', body),
   mine: () => g('/disputes/mine'),
 };
+
+// Rules + Event Engine (no-code automation)
+export const automationApi = {
+  listRules: () => g('/automation/rules'),
+  createRule: (body: any) => p('/automation/rules', body),
+  updateRule: (id: string, patch: any) => pc(`/automation/rules/${id}`, patch),
+  removeRule: (id: string) => d(`/automation/rules/${id}`),
+  simulate: (type: string, payload: any) => p('/automation/simulate', { type, payload }),
+  emit: (type: string, payload: any) => p('/automation/emit', { type, payload }),
+  events: (type?: string) => g('/automation/events', { params: type ? { type } : {} }),
+  alerts: (unread?: boolean) => g('/automation/alerts', { params: unread ? { unread: true } : {} }),
+  markAlertRead: (id: string) => pc(`/automation/alerts/${id}/read`),
+};
