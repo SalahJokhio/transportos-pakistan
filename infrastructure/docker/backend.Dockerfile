@@ -19,5 +19,8 @@ COPY --from=build /app/apps ./apps
 COPY --from=build /app/tsconfig*.json ./
 RUN mkdir -p uploads
 EXPOSE 3000
-# Apply pending migrations, then serve.
-CMD ["sh", "-c", "npm run migration:run && npm run start:prod"]
+# Serve only. Migrations run as a separate release step (a k8s Job / CI stage
+# or `npm run migration:run` against the DB) — NOT chained into the start
+# command: the ts-node migration CLI can keep the event loop alive and never
+# exit, which would hang boot and fail the healthcheck.
+CMD ["npm", "run", "start:prod"]

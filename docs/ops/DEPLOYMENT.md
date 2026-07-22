@@ -10,15 +10,23 @@ Milestone 10 artifacts: CI/CD, containerization, Kubernetes, and observability.
 Extend with a `docker` job that builds and pushes images to GHCR on `master`, then a deploy step (`kubectl apply` or Railway CLI).
 
 ## Containers
-Multi-stage Dockerfiles (Node 20 alpine):
-- `backend/Dockerfile` — build → runtime; boots with `migration:run && start:prod`. Keeps devDeps (the ts-node migration runner needs them).
-- `frontend/Dockerfile` — takes `NEXT_PUBLIC_API_URL` as a build arg (baked into the bundle).
+Multi-stage Dockerfiles (Node 20 alpine) live in `infrastructure/docker/` — deliberately NOT at the service roots, so Railway keeps using Nixpacks (its Metal builder auto-uses a root Dockerfile if present, which changes the build path).
+- `backend.Dockerfile` — build → runtime; CMD is `start:prod` only.
+- `frontend.Dockerfile` — takes `NEXT_PUBLIC_API_URL` as a build arg (baked into the bundle).
 
-Build locally:
+Build locally (context = the service dir, Dockerfile via `-f`):
 ```bash
-docker build -t transportos-backend ./backend
-docker build --build-arg NEXT_PUBLIC_API_URL=https://api.transportos.pk/api/v1 -t transportos-frontend ./frontend
+docker build -f infrastructure/docker/backend.Dockerfile -t transportos-backend ./backend
+docker build -f infrastructure/docker/frontend.Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://api.transportos.pk/api/v1 -t transportos-frontend ./frontend
 ```
+
+## Migrations (release step — not in the start command)
+Migrations run as their own step, never chained into app start (the ts-node
+migration CLI can keep the event loop alive and hang boot). Apply before/at release:
+```bash
+cd backend && DATABASE_URL=... DATABASE_SSL=true npm run migration:run
+```
+In k8s, run this as a `Job` (or initContainer) before rolling the Deployment.
 
 ## Kubernetes (`infrastructure/k8s/`)
 Apply in order (filenames are ordinal):
