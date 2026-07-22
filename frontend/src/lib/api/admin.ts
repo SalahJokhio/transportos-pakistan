@@ -153,3 +153,9 @@ export const workflowApi = {
   reject: (id: string, note?: string) => p(`/workflows/instances/${id}/reject`, { note }),
   cancel: (id: string) => p(`/workflows/instances/${id}/cancel`),
 };
+
+// Executive AI Copilot
+export const copilotApi = {
+  ask: (question: string): Promise<any> => p('/copilot/ask', { question }),
+  snapshot: () => g('/copilot/snapshot'),
+};
