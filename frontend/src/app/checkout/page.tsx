@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { bookingApi, paymentApi, tripApi, couponApi, eventsApi } from '@/lib/api/endpoints';
 import { useQuery } from '@tanstack/react-query';
-import { CreditCard, Phone, User, Shield, ChevronRight } from 'lucide-react';
+import { CreditCard, Phone, User, Shield, ChevronRight, MapPin } from 'lucide-react';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
 import { redirectToGateway } from '@/lib/payment/redirectToGateway';
 
@@ -38,6 +38,8 @@ export default function CheckoutPage() {
   const [promo, setPromo] = useState('');
   const [discount, setDiscount] = useState(0);
   const [promoMsg, setPromoMsg] = useState('');
+  const [boardingPoint, setBoardingPoint] = useState('');
+  const [dropoffPoint, setDropoffPoint] = useState('');
   const total = Math.max(0, subtotal + gst - discount);
   // Stable idempotency key for this checkout — a double-tapped "Book" reuses it
   // so the server returns the original booking instead of creating a duplicate.
@@ -76,6 +78,8 @@ export default function CheckoutPage() {
         promoCode: discount > 0 ? promo : undefined,
         idempotencyKey,
         paymentMode: paymentMethod === 'counter' ? 'COUNTER' : 'ONLINE',
+        boardingPoint: boardingPoint || undefined,
+        dropoffPoint: dropoffPoint || undefined,
       });
 
       if (paymentMethod === 'counter') {
@@ -169,6 +173,37 @@ export default function CheckoutPage() {
               ))}
             </div>
           </div>
+
+          {/* Boarding / drop-off points (shown only if the route defines them) */}
+          {((trip?.boardingPoints?.length ?? 0) > 0 || (trip?.droppingPoints?.length ?? 0) > 0) && (
+            <div className="card">
+              <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <MapPin size={18} className="text-orange-600" /> Boarding & Drop-off
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {(trip?.boardingPoints?.length ?? 0) > 0 && (
+                  <label className="text-sm">Boarding point
+                    <select value={boardingPoint} onChange={(e) => setBoardingPoint(e.target.value)} className="input mt-1">
+                      <option value="">Select…</option>
+                      {trip.boardingPoints.map((b: any, i: number) => (
+                        <option key={i} value={b.name}>{b.name}{b.time ? ` (${b.time})` : ''}{b.landmark ? ` — ${b.landmark}` : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {(trip?.droppingPoints?.length ?? 0) > 0 && (
+                  <label className="text-sm">Drop-off point
+                    <select value={dropoffPoint} onChange={(e) => setDropoffPoint(e.target.value)} className="input mt-1">
+                      <option value="">Select…</option>
+                      {trip.droppingPoints.map((d: any, i: number) => (
+                        <option key={i} value={d.name}>{d.name}{d.landmark ? ` — ${d.landmark}` : ''}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Payment method */}
           <div className="card">

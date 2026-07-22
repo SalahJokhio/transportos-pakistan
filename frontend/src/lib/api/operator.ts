@@ -21,6 +21,17 @@ export const operatorApi = {
   assignDriver: (tripId: string, driverId: string) =>
     api.patch(`/operator/trips/${tripId}/driver`, { driverId }),
 
+  // Terminals + boarding points
+  getTerminals: (city?: string) => get('/operator/terminals', city ? { city } : undefined),
+  createTerminal: (data: any) => post('/operator/terminals', data),
+  removeTerminal: (id: string) => api.delete(`/operator/terminals/${id}`),
+
+  // Recurring schedules
+  getSchedules: () => get('/operator/schedules'),
+  createSchedule: (data: any) => post('/operator/schedules', data),
+  removeSchedule: (id: string) => api.delete(`/operator/schedules/${id}`),
+  generateSchedules: () => post('/operator/schedules/generate'),
+
   // Staff / HR
   employeeStats: () => get('/operator/employees/stats'),
   employees: (params?: { type?: string; status?: string; search?: string }) =>

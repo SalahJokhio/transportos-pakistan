@@ -59,6 +59,13 @@ export class Booking {
   @Column({ type: 'timestamp', nullable: true })
   boardedAt: Date;
 
+  // Passenger-chosen boarding / drop-off points (from the route's named points).
+  @Column({ nullable: true })
+  boardingPoint: string;
+
+  @Column({ nullable: true })
+  dropoffPoint: string;
+
   @Column({ type: 'jsonb', nullable: true })
   passengerDetails: Array<{
     name: string;

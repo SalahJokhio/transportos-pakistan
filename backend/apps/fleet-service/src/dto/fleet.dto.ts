@@ -28,6 +28,16 @@ export class CreateRouteDto {
   @IsArray()
   @IsOptional()
   stops?: any[];
+
+  @ApiPropertyOptional()
+  @IsArray()
+  @IsOptional()
+  boardingPoints?: any[];
+
+  @ApiPropertyOptional()
+  @IsArray()
+  @IsOptional()
+  droppingPoints?: any[];
 }
 
 export class CreateBusDto {

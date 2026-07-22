@@ -163,6 +163,8 @@ export class BookingService {
         pnr,
         idempotencyKey: dto.idempotencyKey,
         paymentMode: dto.paymentMode === 'COUNTER' ? 'COUNTER' : 'ONLINE',
+        boardingPoint: dto.boardingPoint,
+        dropoffPoint: dto.dropoffPoint,
         tripId: dto.tripId,
         passengerId,
         bookedById,

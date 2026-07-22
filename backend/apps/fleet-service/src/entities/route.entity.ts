@@ -30,6 +30,14 @@ export class Route {
     minutesFromOrigin: number;
   }>;
 
+  // Named boarding / drop-off points the passenger picks at checkout. PK-specific:
+  // a route has multiple terminals + landmark pickups, not one origin/destination.
+  @Column({ type: 'jsonb', default: [] })
+  boardingPoints: Array<{ name: string; city?: string; landmark?: string; time?: string }>;
+
+  @Column({ type: 'jsonb', default: [] })
+  droppingPoints: Array<{ name: string; city?: string; landmark?: string }>;
+
   @Column({ type: 'enum', enum: TransportType, default: TransportType.BUS })
   transportType: TransportType;
 

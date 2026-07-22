@@ -42,6 +42,10 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   paymentMode?: string;
+
+  // Chosen boarding / drop-off point (from the route's named points).
+  @ApiPropertyOptional() @IsString() @IsOptional() boardingPoint?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() dropoffPoint?: string;
 }
 
 export class CancelBookingDto {

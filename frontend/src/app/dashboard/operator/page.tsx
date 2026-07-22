@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bus, MapPin, Calendar, BarChart3, Plus, CheckCircle, AlertCircle, Navigation,
+  Building2, Repeat, Trash2, RefreshCw,
 } from 'lucide-react';
 
 const STATUS_FLOW: Record<string, { next: string; label: string; color: string }[]> = {
@@ -29,7 +30,7 @@ const STATUS_BADGE: Record<string, string> = {
   DELAYED:    'bg-amber-100 text-amber-700',
 };
 
-type Tab = 'overview' | 'routes' | 'buses' | 'trips';
+type Tab = 'overview' | 'routes' | 'buses' | 'trips' | 'schedules' | 'terminals';
 
 // ── small form helpers ──────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -44,12 +45,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── Add Route Form ──────────────────────────────────────────────────
 function AddRouteForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({ name: '', originCity: '', destinationCity: '', distanceKm: '', estimatedMinutes: '' });
+  // Comma-separated "Name @ time" points; parsed into {name, time} on submit.
+  const [boarding, setBoarding] = useState('');
+  const [dropping, setDropping] = useState('');
   const qc = useQueryClient();
+
+  const parsePoints = (raw: string) =>
+    raw.split(',').map((s) => s.trim()).filter(Boolean).map((s) => {
+      const [name, time] = s.split('@').map((x) => x.trim());
+      return time ? { name, time } : { name };
+    });
+
   const mut = useMutation({
     mutationFn: () => operatorApi.createRoute({
       ...form,
       distanceKm: Number(form.distanceKm),
       estimatedMinutes: Number(form.estimatedMinutes),
+      boardingPoints: parsePoints(boarding),
+      droppingPoints: parsePoints(dropping),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-routes'] }); onSuccess(); },
   });
@@ -65,6 +78,14 @@ function AddRouteForm({ onSuccess }: { onSuccess: () => void }) {
         <Field label="Destination City"><input className="input" placeholder="Karachi" onChange={set('destinationCity')} /></Field>
         <Field label="Distance (km)"><input className="input" type="number" placeholder="1220" onChange={set('distanceKm')} /></Field>
         <Field label="Est. Duration (minutes)"><input className="input" type="number" placeholder="1080" onChange={set('estimatedMinutes')} /></Field>
+      </div>
+      <div className="grid grid-cols-1 gap-3 mb-3">
+        <Field label="Boarding points (comma-separated, optional “Name @ 08:00”)">
+          <input className="input" placeholder="Kalma Chowk @ 08:00, Thokar Niaz Baig @ 08:30" value={boarding} onChange={(e) => setBoarding(e.target.value)} />
+        </Field>
+        <Field label="Drop-off points (comma-separated)">
+          <input className="input" placeholder="Sohrab Goth, Saddar" value={dropping} onChange={(e) => setDropping(e.target.value)} />
+        </Field>
       </div>
       <button
         onClick={() => mut.mutate()}
@@ -178,6 +199,8 @@ export default function OperatorDashboard() {
     { id: 'routes' as Tab, label: 'Routes', icon: MapPin },
     { id: 'buses' as Tab, label: 'Fleet', icon: Bus },
     { id: 'trips' as Tab, label: 'Trips', icon: Calendar },
+    { id: 'schedules' as Tab, label: 'Schedules', icon: Repeat },
+    { id: 'terminals' as Tab, label: 'Terminals', icon: Building2 },
   ];
 
   const s = summary as any;
@@ -300,6 +323,158 @@ export default function OperatorDashboard() {
             ))}
         </div>
       )}
+
+      {/* Schedules tab */}
+      {tab === 'schedules' && <SchedulesTab routes={r} buses={b} />}
+
+      {/* Terminals tab */}
+      {tab === 'terminals' && <TerminalsTab />}
+    </div>
+  );
+}
+
+// ── Recurring Schedules ─────────────────────────────────────────────
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function SchedulesTab({ routes, buses }: { routes: any[]; buses: any[] }) {
+  const qc = useQueryClient();
+  const { data: schedules = [] } = useQuery({ queryKey: ['op-schedules'], queryFn: operatorApi.getSchedules });
+  const [form, setForm] = useState<any>({ routeId: '', busId: '', departureTime: '08:00', basePrice: '', daysOfWeek: [1, 2, 3, 4, 5] });
+  const [msg, setMsg] = useState('');
+
+  const createMut = useMutation({
+    mutationFn: () => operatorApi.createSchedule({
+      routeId: form.routeId, busId: form.busId, departureTime: form.departureTime,
+      basePrice: Number(form.basePrice), daysOfWeek: form.daysOfWeek,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-schedules'] }); setForm({ ...form, basePrice: '' }); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: string) => operatorApi.removeSchedule(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['op-schedules'] }),
+  });
+  const genMut = useMutation({
+    mutationFn: () => operatorApi.generateSchedules(),
+    onSuccess: (res: any) => { setMsg(`Generated ${res?.tripsCreated ?? 0} trip(s) for the next 7 days.`); qc.invalidateQueries({ queryKey: ['op-trips'] }); },
+  });
+
+  const toggleDay = (d: number) =>
+    setForm((f: any) => ({ ...f, daysOfWeek: f.daysOfWeek.includes(d) ? f.daysOfWeek.filter((x: number) => x !== d) : [...f.daysOfWeek, d].sort() }));
+
+  const list = schedules as any[];
+  const canSubmit = form.routeId && form.busId && form.basePrice && form.daysOfWeek.length;
+
+  return (
+    <div className="space-y-4">
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2"><Repeat size={16} className="text-orange-600" /> New recurring schedule</h3>
+          <button onClick={() => genMut.mutate()} disabled={genMut.isPending}
+            className="text-xs flex items-center gap-1.5 border border-orange-200 text-orange-600 hover:bg-orange-50 px-3 py-1.5 rounded-lg disabled:opacity-50">
+            <RefreshCw size={13} className={genMut.isPending ? 'animate-spin' : ''} /> Generate trips now
+          </button>
+        </div>
+        {msg && <div className="text-xs bg-green-50 text-green-700 rounded-lg px-3 py-2 mb-3">{msg}</div>}
+        <div className="grid md:grid-cols-2 gap-3">
+          <Field label="Route">
+            <select className="input" value={form.routeId} onChange={(e) => setForm({ ...form, routeId: e.target.value })}>
+              <option value="">Select route…</option>
+              {routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Bus">
+            <select className="input" value={form.busId} onChange={(e) => setForm({ ...form, busId: e.target.value })}>
+              <option value="">Select bus…</option>
+              {buses.map((b) => <option key={b.id} value={b.id}>{b.registrationNumber} · {b.totalSeats} seats</option>)}
+            </select>
+          </Field>
+          <Field label="Departure time"><input type="time" className="input" value={form.departureTime} onChange={(e) => setForm({ ...form, departureTime: e.target.value })} /></Field>
+          <Field label="Base price (Rs)"><input type="number" className="input" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} placeholder="1200" /></Field>
+        </div>
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-slate-600 mb-1">Runs on</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {DAYS.map((d, i) => (
+              <button key={d} onClick={() => toggleDay(i)} type="button"
+                className={`text-xs px-3 py-1.5 rounded-lg border ${form.daysOfWeek.includes(i) ? 'bg-orange-500 text-white border-orange-500' : 'border-slate-200 text-slate-500'}`}>
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={() => createMut.mutate()} disabled={!canSubmit || createMut.isPending}
+          className="btn-primary mt-4 text-sm flex items-center gap-2 disabled:opacity-50">
+          <Plus size={14} /> Add schedule
+        </button>
+      </div>
+
+      {list.length === 0
+        ? <div className="card text-center py-10 text-slate-400">No recurring schedules yet.</div>
+        : list.map((sch) => {
+          const route = routes.find((r) => r.id === sch.routeId);
+          const bus = buses.find((b) => b.id === sch.busId);
+          return (
+            <div key={sch.id} className="card flex justify-between items-center">
+              <div>
+                <div className="font-semibold">{route?.name ?? 'Route'} · {sch.departureTime}</div>
+                <div className="text-sm text-slate-500">
+                  {bus?.registrationNumber ?? 'Bus'} · Rs {Number(sch.basePrice).toLocaleString()} ·{' '}
+                  {(sch.daysOfWeek ?? []).map((d: number) => DAYS[d]).join(', ')}
+                </div>
+              </div>
+              <button onClick={() => delMut.mutate(sch.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+            </div>
+          );
+        })}
+    </div>
+  );
+}
+
+// ── Terminals / boarding points ─────────────────────────────────────
+function TerminalsTab() {
+  const qc = useQueryClient();
+  const { data: terminals = [] } = useQuery({ queryKey: ['op-terminals'], queryFn: () => operatorApi.getTerminals() });
+  const [form, setForm] = useState<any>({ city: '', name: '', landmark: '', address: '' });
+
+  const createMut = useMutation({
+    mutationFn: () => operatorApi.createTerminal(form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-terminals'] }); setForm({ city: '', name: '', landmark: '', address: '' }); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: string) => operatorApi.removeTerminal(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['op-terminals'] }),
+  });
+
+  const list = terminals as any[];
+  const canSubmit = form.city && form.name;
+
+  return (
+    <div className="space-y-4">
+      <div className="card">
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><Building2 size={16} className="text-orange-600" /> Add terminal / boarding point</h3>
+        <div className="grid md:grid-cols-2 gap-3">
+          <Field label="City"><input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Lahore" /></Field>
+          <Field label="Name"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Kalma Chowk Terminal" /></Field>
+          <Field label="Landmark"><input className="input" value={form.landmark} onChange={(e) => setForm({ ...form, landmark: e.target.value })} placeholder="Near Kalma Chowk flyover" /></Field>
+          <Field label="Address"><input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ferozepur Road" /></Field>
+        </div>
+        <button onClick={() => createMut.mutate()} disabled={!canSubmit || createMut.isPending}
+          className="btn-primary mt-4 text-sm flex items-center gap-2 disabled:opacity-50">
+          <Plus size={14} /> Add terminal
+        </button>
+      </div>
+
+      {list.length === 0
+        ? <div className="card text-center py-10 text-slate-400">No terminals yet.</div>
+        : list.map((tm) => (
+          <div key={tm.id} className="card flex justify-between items-center">
+            <div>
+              <div className="font-semibold">{tm.name} <span className="text-xs text-slate-400 font-normal">· {tm.city}</span></div>
+              <div className="text-sm text-slate-500">{[tm.landmark, tm.address].filter(Boolean).join(' · ') || '—'}</div>
+            </div>
+            <button onClick={() => delMut.mutate(tm.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+          </div>
+        ))}
     </div>
   );
 }

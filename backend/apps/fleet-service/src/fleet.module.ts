@@ -9,6 +9,10 @@ import { DriverReview } from './entities/driver-review.entity';
 import { TripReport } from './entities/trip-report.entity';
 import { Employee } from './entities/employee.entity';
 import { Attendance } from './entities/attendance.entity';
+import { Terminal } from './entities/terminal.entity';
+import { Schedule } from './entities/schedule.entity';
+import { TerminalService } from './services/terminal.service';
+import { ScheduleService } from './services/schedule.service';
 import { User } from '../../user-service/src/entities/user.entity';
 import { RouteService } from './services/route.service';
 import { BusService } from './services/bus.service';
@@ -29,7 +33,7 @@ import { BookingModule } from '../../booking-service/src/booking.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    TypeOrmModule.forFeature([Route, Bus, Trip, DriverReview, TripReport, Employee, Attendance, User]),
+    TypeOrmModule.forFeature([Route, Bus, Trip, DriverReview, TripReport, Employee, Attendance, Terminal, Schedule, User]),
     BookingModule, // for operator dashboard booking/revenue stats
   ],
   controllers: [
@@ -40,6 +44,6 @@ import { BookingModule } from '../../booking-service/src/booking.module';
     DriverController,
     DriversController,
   ],
-  providers: [RouteService, BusService, TripService, DriverRecordService, TripReportService, FleetAnalyticsService, EmployeeService],
+  providers: [RouteService, BusService, TripService, DriverRecordService, TripReportService, FleetAnalyticsService, EmployeeService, TerminalService, ScheduleService],
 })
 export class FleetModule {}

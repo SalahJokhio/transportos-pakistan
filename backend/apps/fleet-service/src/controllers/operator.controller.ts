@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RouteService } from '../services/route.service';
+import { TerminalService } from '../services/terminal.service';
+import { ScheduleService } from '../services/schedule.service';
 import { BusService } from '../services/bus.service';
 import { TripService } from '../services/trip.service';
 import { CreateRouteDto, CreateBusDto, CreateTripDto, CreateEmployeeDto } from '../dto/fleet.dto';
@@ -29,6 +31,8 @@ export class OperatorController {
     private readonly fleetAnalyticsService: FleetAnalyticsService,
     private readonly driverRecordService: DriverRecordService,
     private readonly employeeService: EmployeeService,
+    private readonly terminalService: TerminalService,
+    private readonly scheduleService: ScheduleService,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
   ) {}
 
@@ -97,6 +101,48 @@ export class OperatorController {
   @ApiOperation({ summary: 'Assign / reassign a driver to a trip' })
   assignDriver(@Param('tripId') tripId: string, @Body() body: { driverId: string }, @Request() req) {
     return this.tripService.assignDriver(tripId, body.driverId, req.user?.companyId || req.user?.sub);
+  }
+
+  // ── Terminals directory + boarding points ────────────────────
+  @Get('terminals')
+  @ApiOperation({ summary: 'List the operator’s terminals' })
+  listTerminals(@Query('city') city: string, @Request() req) {
+    return this.terminalService.list(req.user?.companyId || req.user?.sub, city);
+  }
+
+  @Post('terminals')
+  @ApiOperation({ summary: 'Add a terminal / boarding point' })
+  addTerminal(@Body() body: any, @Request() req) {
+    return this.terminalService.create(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Delete('terminals/:id')
+  removeTerminal(@Param('id') id: string, @Request() req) {
+    return this.terminalService.remove(id, req.user?.companyId || req.user?.sub);
+  }
+
+  // ── Recurring schedules ──────────────────────────────────────
+  @Get('schedules')
+  @ApiOperation({ summary: 'List recurring schedules' })
+  listSchedules(@Request() req) {
+    return this.scheduleService.list(req.user?.companyId || req.user?.sub);
+  }
+
+  @Post('schedules')
+  @ApiOperation({ summary: 'Create a recurring schedule (route + bus + time + days)' })
+  addSchedule(@Body() body: any, @Request() req) {
+    return this.scheduleService.create(req.user?.companyId || req.user?.sub, body);
+  }
+
+  @Delete('schedules/:id')
+  removeSchedule(@Param('id') id: string, @Request() req) {
+    return this.scheduleService.remove(id, req.user?.companyId || req.user?.sub);
+  }
+
+  @Post('schedules/generate')
+  @ApiOperation({ summary: 'Generate trips from schedules for the next 7 days' })
+  generateSchedules(@Request() req) {
+    return this.scheduleService.generate(req.user?.companyId || req.user?.sub);
   }
 
   @Get('schedule/conflicts')
