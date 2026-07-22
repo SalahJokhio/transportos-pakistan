@@ -159,3 +159,10 @@ export const copilotApi = {
   ask: (question: string): Promise<any> => p('/copilot/ask', { question }),
   snapshot: () => g('/copilot/snapshot'),
 };
+
+// Department AI Agents
+export const agentsApi = {
+  overview: () => g('/agents/overview'),
+  run: (domain: 'dispatch' | 'finance' | 'fleet') => g(`/agents/${domain}`),
+  act: (action: any, domain?: string) => p('/agents/act', { action, domain }),
+};
