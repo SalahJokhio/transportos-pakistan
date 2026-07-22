@@ -9,7 +9,9 @@ import { PricingService } from '../../src/services/pricing.service';
 import { CouponService } from '../../src/services/coupon.service';
 import { Booking } from '../../src/entities/booking.entity';
 import { BookingSeat } from '../../src/entities/booking-seat.entity';
+import { FunnelEvent } from '../../src/entities/funnel-event.entity';
 import { BookingStatus } from '@app/common';
+import { EventBusService } from '../../../automation-service/src/services/event-bus.service';
 import { User } from '../../../user-service/src/entities/user.entity';
 import { LoyaltyTransaction } from '../../../user-service/src/entities/loyalty-transaction.entity';
 import { Trip } from '../../../fleet-service/src/entities/trip.entity';
@@ -44,9 +46,11 @@ describe('BookingService (guard branches)', () => {
         { provide: CouponService, useValue: { validate: jest.fn().mockResolvedValue({ valid: false, discount: 0 }), redeem: jest.fn() } },
         { provide: SeatLockService, useValue: seatLock },
         { provide: NotificationService, useValue: { sendBookingConfirmation: jest.fn(), sendCancellationNotice: jest.fn() } },
+        { provide: EventBusService, useValue: { emit: jest.fn().mockResolvedValue(undefined) } },
         { provide: DataSource, useValue: dataSource },
         { provide: getRepositoryToken(Booking), useValue: repoMock() },
         { provide: getRepositoryToken(BookingSeat), useValue: repoMock() },
+        { provide: getRepositoryToken(FunnelEvent), useValue: repoMock() },
         { provide: getRepositoryToken(User), useValue: repoMock() },
         { provide: getRepositoryToken(LoyaltyTransaction), useValue: repoMock() },
         { provide: getRepositoryToken(Trip), useValue: repoMock() },

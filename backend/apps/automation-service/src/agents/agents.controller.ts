@@ -29,8 +29,9 @@ export class AgentsController {
   }
 
   @Post('act')
-  @ApiOperation({ summary: 'Execute an insight’s recommended action (→ alert + event)' })
+  @ApiOperation({ summary: 'Execute an insight’s recommended action (→ alert or workflow + event)' })
   act(@Body() body: { action: any; domain?: string }, @Request() req) {
-    return this.agents.act(this.scope(req) ?? null, body?.action, body?.domain);
+    const actor = { userId: req.user?.sub || req.user?.id, role: req.user?.role, companyId: this.scope(req) ?? null };
+    return this.agents.act(actor, body?.action, body?.domain);
   }
 }

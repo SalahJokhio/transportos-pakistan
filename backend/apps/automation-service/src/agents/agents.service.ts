@@ -4,8 +4,12 @@ import { Repository, Between, In } from 'typeorm';
 import { Trip } from '../../../fleet-service/src/entities/trip.entity';
 import { Bus } from '../../../fleet-service/src/entities/bus.entity';
 import { Route } from '../../../fleet-service/src/entities/route.entity';
+import { Employee } from '../../../fleet-service/src/entities/employee.entity';
+import { TripReport } from '../../../fleet-service/src/entities/trip-report.entity';
+import { SupportTicket } from '../../../user-service/src/entities/support-ticket.entity';
 import { AutomationAlert } from '../entities/automation-alert.entity';
 import { EventBusService } from '../services/event-bus.service';
+import { WorkflowService } from '../workflow/workflow.service';
 
 export interface AgentInsight {
   id: string;                 // stable-ish key for the UI
@@ -14,10 +18,12 @@ export interface AgentInsight {
   detail: string;
   metric?: string;
   // A one-click action the operator can take — routed through the engines.
-  action?: { kind: 'alert'; severity: 'info' | 'warning' | 'critical'; title: string; message: string };
+  action?:
+    | { kind: 'alert'; severity: 'info' | 'warning' | 'critical'; title: string; message: string }
+    | { kind: 'workflow'; category: string; title: string; amount?: number };
 }
 
-type Domain = 'dispatch' | 'finance' | 'fleet';
+type Domain = 'dispatch' | 'finance' | 'fleet' | 'hr' | 'crm' | 'workshop';
 
 /**
  * Department AI Agents (Milestone 9, Layer 2). Each agent reads live data for
@@ -32,8 +38,12 @@ export class AgentsService {
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
     @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
+    @InjectRepository(Employee) private readonly employeeRepo: Repository<Employee>,
+    @InjectRepository(TripReport) private readonly reportRepo: Repository<TripReport>,
+    @InjectRepository(SupportTicket) private readonly ticketRepo: Repository<SupportTicket>,
     @InjectRepository(AutomationAlert) private readonly alertRepo: Repository<AutomationAlert>,
     private readonly eventBus: EventBusService,
+    private readonly workflows: WorkflowService,
   ) {}
 
   private seatStats(t: Trip) {
@@ -192,35 +202,122 @@ export class AgentsService {
     return insights;
   }
 
+  // ── HR Agent ────────────────────────────────────────────────────────
+  async hr(companyId?: string): Promise<AgentInsight[]> {
+    const insights: AgentInsight[] = [];
+    const today = new Date().toISOString().slice(0, 10);
+
+    const onLeave = await this.employeeRepo.count({ where: { ...(companyId ? { companyId } : {}), status: 'ON_LEAVE' as any } });
+    if (onLeave > 0) insights.push({ id: 'hr-onleave', severity: 'info', title: `${onLeave} staff on leave`, detail: `${onLeave} employee(s) currently ON_LEAVE — check coverage for their shifts.`, metric: String(onLeave) });
+
+    const absent = await this.employeeRepo.query(
+      `SELECT COUNT(*)::int AS n FROM attendance WHERE date = $1 AND status = 'ABSENT' ${companyId ? `AND "companyId" = $2` : ``}`,
+      companyId ? [today, companyId] : [today]);
+    const absentN = Number(absent?.[0]?.n ?? 0);
+    if (absentN > 0) insights.push({ id: 'hr-absent', severity: 'warning', title: `${absentN} absent today`, detail: `${absentN} employee(s) marked ABSENT for ${today}. Arrange cover if any are drivers/conductors.`, metric: String(absentN), action: { kind: 'alert', severity: 'warning', title: 'Staff absent', message: `${absentN} staff absent today (${today})` } });
+
+    // Driver documents expiring (license/CNIC) via compliance registry.
+    const docs = await this.employeeRepo.query(
+      `SELECT "docType", "ownerId", "expiresAt" FROM compliance_documents
+       WHERE "ownerType"='DRIVER' AND "expiresAt" IS NOT NULL AND "expiresAt"::date <= (now() + interval '30 days')::date
+       ORDER BY "expiresAt" ASC LIMIT 8`);
+    for (const d of docs) {
+      const days = Math.ceil((new Date(d.expiresAt).getTime() - Date.now()) / 86400_000);
+      insights.push({ id: `hr-doc-${d.ownerId}-${d.docType}`, severity: days < 0 ? 'critical' : 'warning', title: `Driver ${d.docType} ${days < 0 ? 'EXPIRED' : `expires in ${days}d`}`, detail: `A driver's ${d.docType} ${days < 0 ? 'has expired' : `expires ${new Date(d.expiresAt).toLocaleDateString()}`}. Block dispatch until renewed.`, action: { kind: 'alert', severity: 'critical', title: 'Driver document', message: `Driver ${d.docType} ${days < 0 ? 'EXPIRED' : `expires in ${days}d`}` } });
+    }
+
+    if (insights.length === 0) insights.push({ id: 'hr-ok', severity: 'info', title: 'HR healthy', detail: 'Full attendance, no leave gaps or expiring driver documents.' });
+    return insights;
+  }
+
+  // ── CRM Agent (support is platform-scoped) ──────────────────────────
+  async crm(_companyId?: string): Promise<AgentInsight[]> {
+    const SLA: Record<string, number> = { URGENT: 1, HIGH: 4, MEDIUM: 24, LOW: 72 };
+    const open = await this.ticketRepo.find({ where: [{ status: 'OPEN' }, { status: 'PENDING' }], order: { createdAt: 'ASC' }, take: 300 });
+    const insights: AgentInsight[] = [];
+
+    const breached = open.filter((t) => !t.firstResponseAt && (Date.now() - new Date(t.createdAt).getTime()) > (SLA[t.priority] ?? 24) * 3600_000);
+    if (breached.length) insights.push({ id: 'crm-sla', severity: 'critical', title: `${breached.length} ticket(s) breaching SLA`, detail: `${breached.length} open ticket(s) past first-response SLA. Respond now to recover.`, metric: String(breached.length), action: { kind: 'alert', severity: 'critical', title: 'SLA breach', message: `${breached.length} support ticket(s) past first-response SLA` } });
+
+    const urgent = open.filter((t) => t.priority === 'URGENT');
+    if (urgent.length) insights.push({ id: 'crm-urgent', severity: 'warning', title: `${urgent.length} urgent ticket(s) open`, detail: `${urgent.length} URGENT-priority ticket(s) still unresolved.`, metric: String(urgent.length) });
+
+    if (open.length) insights.push({ id: 'crm-backlog', severity: 'info', title: `${open.length} open ticket(s)`, detail: `Current support backlog across all priorities.`, metric: String(open.length) });
+
+    if (insights.length === 0) insights.push({ id: 'crm-ok', severity: 'info', title: 'CRM healthy', detail: 'No SLA breaches or urgent tickets. Backlog clear.' });
+    return insights;
+  }
+
+  // ── Workshop Agent (from driver trip reports) ───────────────────────
+  async workshop(companyId?: string): Promise<AgentInsight[]> {
+    const insights: AgentInsight[] = [];
+    const params = companyId ? [companyId] : [];
+    const scope = companyId ? `AND "companyId" = $1` : ``;
+
+    const incidents = await this.reportRepo.query(
+      `SELECT COUNT(*)::int AS n FROM trip_reports WHERE type = 'incident' AND "createdAt" >= now() - interval '14 days' ${scope}`, params);
+    const incN = Number(incidents?.[0]?.n ?? 0);
+    if (incN > 0) insights.push({ id: 'workshop-incidents', severity: incN >= 3 ? 'critical' : 'warning', title: `${incN} incident(s) in 14 days`, detail: `${incN} on-road incident(s) reported by drivers (breakdowns, punctures…). Inspect the affected vehicles.`, metric: String(incN), action: { kind: 'alert', severity: 'warning', title: 'Incident cluster', message: `${incN} on-road incidents in the last 14 days` } });
+
+    const spend = await this.reportRepo.query(
+      `SELECT COALESCE(SUM(amount),0)::numeric AS amt FROM trip_reports
+       WHERE (LOWER(category) LIKE '%repair%' OR LOWER(category) LIKE '%break%' OR LOWER(category) LIKE '%tyre%' OR LOWER(category) LIKE '%tire%')
+         AND "createdAt" >= now() - interval '30 days' ${scope}`, params);
+    const amt = Number(spend?.[0]?.amt ?? 0);
+    if (amt > 0) insights.push({ id: 'workshop-spend', severity: amt >= 50000 ? 'warning' : 'info', title: `Rs ${Math.round(amt).toLocaleString()} repair spend (30d)`, detail: `Maintenance/repair spend reported in the last 30 days.` + (amt >= 50000 ? ' Consider a formal repair approval.' : ''), metric: `Rs ${Math.round(amt).toLocaleString()}`, action: amt >= 50000 ? { kind: 'workflow', category: 'MAINTENANCE', title: `Repair budget approval (Rs ${Math.round(amt).toLocaleString()})`, amount: Math.round(amt) } : undefined });
+
+    if (insights.length === 0) insights.push({ id: 'workshop-ok', severity: 'info', title: 'Workshop healthy', detail: 'No recent incidents or elevated repair spend.' });
+    return insights;
+  }
+
   async run(domain: Domain, companyId?: string): Promise<AgentInsight[]> {
-    if (domain === 'dispatch') return this.dispatch(companyId);
-    if (domain === 'finance') return this.finance(companyId);
-    if (domain === 'fleet') return this.fleet(companyId);
-    throw new BadRequestException('Unknown agent');
+    switch (domain) {
+      case 'dispatch': return this.dispatch(companyId);
+      case 'finance': return this.finance(companyId);
+      case 'fleet': return this.fleet(companyId);
+      case 'hr': return this.hr(companyId);
+      case 'crm': return this.crm(companyId);
+      case 'workshop': return this.workshop(companyId);
+      default: throw new BadRequestException('Unknown agent');
+    }
   }
 
   /** Cross-agent summary: severity counts per domain. */
   async overview(companyId?: string) {
-    const [dispatch, finance, fleet] = await Promise.all([
-      this.dispatch(companyId), this.finance(companyId), this.fleet(companyId),
-    ]);
+    const domains: Domain[] = ['dispatch', 'finance', 'fleet', 'hr', 'crm', 'workshop'];
+    const results = await Promise.all(domains.map((d) => this.run(d, companyId)));
     const tally = (arr: AgentInsight[]) => ({
       total: arr.filter((i) => !i.id.endsWith('-ok')).length,
       critical: arr.filter((i) => i.severity === 'critical').length,
       warning: arr.filter((i) => i.severity === 'warning').length,
     });
-    return { dispatch: tally(dispatch), finance: tally(finance), fleet: tally(fleet) };
+    return Object.fromEntries(domains.map((d, i) => [d, tally(results[i])]));
   }
 
   /** Execute an insight's recommended action through the engines. */
-  async act(companyId: string | null, action: AgentInsight['action'], domain?: string) {
-    if (!action || action.kind !== 'alert') throw new BadRequestException('Unsupported action');
-    const alert = await this.alertRepo.save(this.alertRepo.create({
-      companyId, severity: action.severity, title: action.title, message: action.message,
-      meta: { source: 'agent', domain },
-    }));
-    // Also emit so rules can chain off an agent's finding.
-    this.eventBus.emit('AGENT_FLAGGED', { domain, title: action.title, severity: action.severity }, { companyId, source: `agent.${domain}` }).catch(() => undefined);
-    return alert;
+  async act(actor: { userId: string; role?: string; companyId: string | null }, action: AgentInsight['action'], domain?: string) {
+    if (!action) throw new BadRequestException('No action to execute');
+    const companyId = actor.companyId;
+
+    if (action.kind === 'alert') {
+      const alert = await this.alertRepo.save(this.alertRepo.create({
+        companyId, severity: action.severity, title: action.title, message: action.message,
+        meta: { source: 'agent', domain },
+      }));
+      this.eventBus.emit('AGENT_FLAGGED', { domain, title: action.title, severity: action.severity }, { companyId, source: `agent.${domain}` }).catch(() => undefined);
+      return { kind: 'alert', alert };
+    }
+
+    if (action.kind === 'workflow') {
+      // Find an active approval chain matching the category (tenant or platform).
+      const defs = await this.workflows.listDefinitions(companyId);
+      const def = defs.find((d) => d.isActive && d.category === action.category) || defs.find((d) => d.isActive);
+      if (!def) throw new BadRequestException(`No ${action.category} approval workflow configured — create one in Workflows first.`);
+      const inst = await this.workflows.start(actor, { definitionId: def.id, title: action.title, amount: action.amount });
+      this.eventBus.emit('AGENT_FLAGGED', { domain, title: action.title, startedWorkflow: def.name }, { companyId, source: `agent.${domain}` }).catch(() => undefined);
+      return { kind: 'workflow', instance: inst, workflow: def.name };
+    }
+
+    throw new BadRequestException('Unsupported action');
   }
 }

@@ -17,7 +17,9 @@ async function bootstrap() {
   // Serve uploaded incident/expense photos at /uploads/<file>.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.setGlobalPrefix('api/v1');
+  // Ops endpoints stay at the root (Prometheus scrapes /metrics; k8s probes
+  // hit /health/live and /health/ready) — everything else lives under /api/v1.
+  app.setGlobalPrefix('api/v1', { exclude: ['metrics', 'health/live', 'health/ready'] });
 
   const config = new DocumentBuilder()
     .setTitle('TransportOS API')
