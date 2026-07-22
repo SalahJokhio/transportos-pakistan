@@ -62,7 +62,7 @@ export class ScheduleService {
         this.tripRepo.create({
           routeId: s.routeId,
           busId: s.busId,
-          driverId: s.driverId,
+          driverId: s.driverId || 'unassigned', // trips.driverId is NOT NULL
           companyId: s.companyId,
           basePrice: s.basePrice,
           departureTime: departure,
