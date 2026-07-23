@@ -116,7 +116,7 @@ export function AutomationConsole() {
                   )}
                   {a.type === 'notify' && (
                     <select value={a.channel || 'sms'} onChange={(e) => setAct(i, 'channel', e.target.value)} className="border rounded px-2 py-1.5 text-sm">
-                      {['sms', 'whatsapp'].map((s) => <option key={s}>{s}</option>)}
+                      {['sms', 'whatsapp', 'email', 'telegram', 'push', 'inapp'].map((s) => <option key={s}>{s}</option>)}
                     </select>
                   )}
                   <button onClick={() => setDraft({ ...draft, actions: draft.actions.filter((_: any, x: number) => x !== i) })} className="text-gray-400 hover:text-red-500 ml-auto"><Trash2 size={14} /></button>

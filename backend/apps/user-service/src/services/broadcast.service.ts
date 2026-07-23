@@ -33,14 +33,18 @@ export class BroadcastService {
     const users = await this.userRepo.find({ where, take: MAX_RECIPIENTS });
     const recipients = users.filter((u) => u.phone);
 
-    // Only SMS has a live delivery path today (Twilio, else console). Other
-    // channels are recorded but not yet wired to a provider.
-    if (channel === 'SMS' || channel === 'WHATSAPP') {
-      for (const u of recipients) {
-        this.notificationService.sendSms({ phone: u.phone, message: dto.message }).catch(() => undefined);
+    // Every channel now has a delivery path (live when its provider creds are
+    // set, else logged — same graceful pattern across the platform).
+    const title = dto.title || 'TransportOS';
+    for (const u of recipients) {
+      const msg = dto.message;
+      switch (channel) {
+        case 'WHATSAPP': this.notificationService.sendWhatsApp({ phone: u.phone, message: msg }).catch(() => undefined); break;
+        case 'EMAIL': if ((u as any).email) this.notificationService.sendEmail({ to: (u as any).email, subject: title, body: msg }).catch(() => undefined); break;
+        case 'PUSH': if ((u as any).pushToken) this.notificationService.sendPush({ to: (u as any).pushToken, title, body: msg }).catch(() => undefined); break;
+        case 'TELEGRAM': if ((u as any).telegramChatId) this.notificationService.sendTelegram({ to: (u as any).telegramChatId, message: msg }).catch(() => undefined); break;
+        default: this.notificationService.sendSms({ phone: u.phone, message: msg }).catch(() => undefined);
       }
-    } else {
-      this.logger.log(`Broadcast via ${channel} to ${recipients.length} recipients (channel not wired — logged only)`);
     }
 
     return this.broadcastRepo.save(

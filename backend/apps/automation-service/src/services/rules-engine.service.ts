@@ -107,12 +107,14 @@ export class RulesEngineService {
           const to = this.interpolate(action.to || '', event) || this.resolve(action.to, event.payload);
           const message = this.interpolate(action.message || '', event);
           if (!to) { this.logger.warn(`notify skipped (no recipient) rule ${rule.id}`); break; }
-          if (action.channel === 'inapp') {
-            await this.inboxRepo.save(this.inboxRepo.create({ userId: to, title: this.interpolate(action.title || rule.name, event), body: message, type: action.notifType || 'info' }));
-          } else if (action.channel === 'whatsapp') {
-            await this.notifications.sendWhatsApp({ to, message } as any);
-          } else {
-            await this.notifications.sendSms({ to, message } as any);
+          const title = this.interpolate(action.title || rule.name, event);
+          switch (action.channel) {
+            case 'inapp': await this.inboxRepo.save(this.inboxRepo.create({ userId: to, title, body: message, type: action.notifType || 'info' })); break;
+            case 'whatsapp': await this.notifications.sendWhatsApp({ to, message } as any); break;
+            case 'email': await this.notifications.sendEmail({ to, subject: title, body: message }); break;
+            case 'telegram': await this.notifications.sendTelegram({ to, message }); break;
+            case 'push': await this.notifications.sendPush({ to, title, body: message }); break;
+            default: await this.notifications.sendSms({ to, message } as any);
           }
           break;
         }

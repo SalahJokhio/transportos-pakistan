@@ -89,6 +89,57 @@ export class NotificationService {
     return { success: true, provider: 'console' };
   }
 
+  /**
+   * Email via an HTTP provider (SendGrid) when SENDGRID_API_KEY is set, else
+   * logged. No SMTP/nodemailer dependency — same graceful pattern as SMS.
+   */
+  async sendEmail(dto: { to: string; subject: string; body: string }): Promise<{ success: boolean; provider: string }> {
+    const key = this.configService.get('SENDGRID_API_KEY');
+    const from = this.configService.get('EMAIL_FROM') || 'no-reply@transportos.pk';
+    if (key && !String(key).startsWith('your-')) {
+      try {
+        await axios.post('https://api.sendgrid.com/v3/mail/send', {
+          personalizations: [{ to: [{ email: dto.to }] }],
+          from: { email: from, name: 'TransportOS' },
+          subject: dto.subject,
+          content: [{ type: 'text/plain', value: dto.body }],
+        }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+        return { success: true, provider: 'sendgrid' };
+      } catch (err: any) { this.logger.warn(`Email failed: ${err.message}`); }
+    }
+    this.logger.log(`[DEV Email] To: ${dto.to} | ${dto.subject}`);
+    return { success: true, provider: 'console' };
+  }
+
+  /** Telegram Bot API when TELEGRAM_BOT_TOKEN is set (to = chat id), else logged. */
+  async sendTelegram(dto: { to: string; message: string }): Promise<{ success: boolean; provider: string }> {
+    const token = this.configService.get('TELEGRAM_BOT_TOKEN');
+    if (token && !String(token).startsWith('your-')) {
+      try {
+        await axios.post(`https://api.telegram.org/bot${token}/sendMessage`,
+          { chat_id: dto.to, text: dto.message }, { timeout: 15000 });
+        return { success: true, provider: 'telegram' };
+      } catch (err: any) { this.logger.warn(`Telegram failed: ${err.message}`); }
+    }
+    this.logger.log(`[DEV Telegram] To: ${dto.to} | ${dto.message}`);
+    return { success: true, provider: 'console' };
+  }
+
+  /** Push via FCM legacy HTTP when FCM_SERVER_KEY is set (to = device token), else logged. */
+  async sendPush(dto: { to: string; title: string; body: string }): Promise<{ success: boolean; provider: string }> {
+    const key = this.configService.get('FCM_SERVER_KEY');
+    if (key && !String(key).startsWith('your-')) {
+      try {
+        await axios.post('https://fcm.googleapis.com/fcm/send',
+          { to: dto.to, notification: { title: dto.title, body: dto.body } },
+          { headers: { Authorization: `key=${key}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+        return { success: true, provider: 'fcm' };
+      } catch (err: any) { this.logger.warn(`Push failed: ${err.message}`); }
+    }
+    this.logger.log(`[DEV Push] To: ${dto.to} | ${dto.title}`);
+    return { success: true, provider: 'console' };
+  }
+
   async sendOtp(phone: string, otp: string): Promise<{ success: boolean; provider: string }> {
     return this.sendSms({
       phone,
