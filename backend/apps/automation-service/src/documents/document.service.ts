@@ -8,6 +8,8 @@ import { Trip } from '../../../fleet-service/src/entities/trip.entity';
 import { Route } from '../../../fleet-service/src/entities/route.entity';
 import { Employee } from '../../../fleet-service/src/entities/employee.entity';
 import { Attendance } from '../../../fleet-service/src/entities/attendance.entity';
+import { Bus } from '../../../fleet-service/src/entities/bus.entity';
+import { TripReport } from '../../../fleet-service/src/entities/trip-report.entity';
 
 /**
  * Document Engine: generates branded PDFs (invoice, salary slip, offer letter)
@@ -22,6 +24,8 @@ export class DocumentService {
     @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
     @InjectRepository(Employee) private readonly employeeRepo: Repository<Employee>,
     @InjectRepository(Attendance) private readonly attendanceRepo: Repository<Attendance>,
+    @InjectRepository(Bus) private readonly busRepo: Repository<Bus>,
+    @InjectRepository(TripReport) private readonly reportRepo: Repository<TripReport>,
   ) {}
 
   private render(build: (doc: PDFKit.PDFDocument) => void): Promise<Buffer> {
@@ -109,6 +113,61 @@ export class DocumentService {
       doc.fillColor('#94a3b8').fontSize(8).text('Computer-generated salary slip.', 50, 760);
     });
     return { buffer, filename: `salary-${emp.firstName}-${month}.pdf` };
+  }
+
+  // ── Maintenance report (from a bus's recent reports) ────────────────
+  async maintenanceReport(busId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const bus = await this.busRepo.findOne({ where: { id: busId } });
+    if (!bus) throw new NotFoundException('Bus not found');
+    const reports = await this.reportRepo.query(
+      `SELECT tr.type, tr.category, tr.amount, tr."createdAt", tr.notes
+       FROM trip_reports tr JOIN trips t ON t.id::text=tr."tripId"
+       WHERE t."busId"=$1 AND tr."createdAt">=now()-interval '90 days' ORDER BY tr."createdAt" DESC LIMIT 30`, [busId]);
+    const total = reports.reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+    const buffer = await this.render((doc) => {
+      this.header(doc, 'MAINTENANCE REPORT');
+      let y = 150;
+      this.kv(doc, 'Vehicle', `${bus.registrationNumber} · ${bus.make} ${bus.model}`, y); y += 22;
+      this.kv(doc, 'Period', 'Last 90 days', y); y += 22;
+      this.kv(doc, 'Reports', String(reports.length), y); y += 22;
+      this.kv(doc, 'Total spend', this.rs(total), y); y += 30;
+      doc.fillColor('#0f172a').fontSize(11).text('Records', 50, y); y += 6;
+      doc.moveTo(50, y + 10).lineTo(545, y + 10).strokeColor('#e2e8f0').stroke(); y += 18;
+      if (!reports.length) doc.fillColor('#64748b').fontSize(10).text('No maintenance records in the period.', 50, y);
+      for (const r of reports.slice(0, 18)) {
+        doc.fillColor('#334155').fontSize(9).text(
+          `${new Date(r.createdAt).toLocaleDateString('en-PK')}  ·  ${r.type}${r.category ? '/' + r.category : ''}  ·  ${r.amount ? this.rs(r.amount) : '—'}${r.notes ? '  ·  ' + String(r.notes).slice(0, 50) : ''}`,
+          50, y); y += 15;
+        if (y > 760) break;
+      }
+      doc.fillColor('#94a3b8').fontSize(8).text('Computer-generated maintenance report.', 50, 775);
+    });
+    return { buffer, filename: `maintenance-${bus.registrationNumber}.pdf` };
+  }
+
+  // ── Inspection report (checklist form) ──────────────────────────────
+  async inspectionReport(busId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const bus = await this.busRepo.findOne({ where: { id: busId } });
+    if (!bus) throw new NotFoundException('Bus not found');
+    const CHECKS = ['Brakes & brake fluid', 'Tyres & pressure', 'Lights & indicators', 'Engine oil & coolant', 'Steering & suspension', 'Wipers & mirrors', 'Seatbelts & doors', 'Fire extinguisher & first-aid', 'Fuel system', 'Battery & electrical'];
+    const buffer = await this.render((doc) => {
+      this.header(doc, 'VEHICLE INSPECTION REPORT');
+      let y = 150;
+      this.kv(doc, 'Vehicle', `${bus.registrationNumber} · ${bus.make} ${bus.model}`, y); y += 22;
+      this.kv(doc, 'Seats', String(bus.totalSeats), y); y += 22;
+      this.kv(doc, 'Inspection date', new Date().toLocaleDateString('en-PK'), y); y += 30;
+      doc.fillColor('#0f172a').fontSize(11).text('Checklist', 50, y); y += 20;
+      for (const c of CHECKS) {
+        doc.rect(50, y, 12, 12).strokeColor('#94a3b8').stroke();
+        doc.fillColor('#334155').fontSize(10).text(c, 72, y + 1);
+        doc.fillColor('#94a3b8').fontSize(9).text('Pass / Fail: __________', 380, y + 1);
+        y += 26;
+      }
+      y += 10;
+      doc.fillColor('#0f172a').fontSize(10).text('Inspector: _______________________     Signature: _______________________', 50, y);
+      doc.fillColor('#94a3b8').fontSize(8).text('Vehicle must pass all critical items (brakes, tyres, steering) before return to service.', 50, 775);
+    });
+    return { buffer, filename: `inspection-${bus.registrationNumber}.pdf` };
   }
 
   // ── Offer letter ────────────────────────────────────────────────────

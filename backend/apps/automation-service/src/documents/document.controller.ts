@@ -39,4 +39,16 @@ export class DocumentController {
   async offer(@Param('employeeId') employeeId: string, @Res() res: Response) {
     this.send(res, await this.docs.offerLetter(employeeId));
   }
+
+  @Get('maintenance/:busId')
+  @ApiOperation({ summary: 'Maintenance report PDF for a bus (90 days)' })
+  async maintenance(@Param('busId') busId: string, @Res() res: Response) {
+    this.send(res, await this.docs.maintenanceReport(busId));
+  }
+
+  @Get('inspection/:busId')
+  @ApiOperation({ summary: 'Vehicle inspection checklist PDF' })
+  async inspection(@Param('busId') busId: string, @Res() res: Response) {
+    this.send(res, await this.docs.inspectionReport(busId));
+  }
 }
