@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
 import {
   LifeBuoy, Search, MessageSquare, Ticket, BookOpen, Plus, Send, Star,
-  ChevronRight, Sparkles, X, Clock, CheckCircle,
+  ChevronRight, Sparkles, X, Clock, CheckCircle, PackageSearch, ShieldAlert, MapPin,
 } from 'lucide-react';
 
 const STATUS_STYLE: Record<string, string> = {
@@ -23,6 +23,8 @@ export default function HelpCenter() {
   const [kb, setKb] = useState<any[] | null>(null);
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showLost, setShowLost] = useState(false);
+  const [showSos, setShowSos] = useState(false);
 
   const { data: tickets = [] } = useQuery({ queryKey: ['my-tickets'], queryFn: helpApi.myTickets, enabled: isAuthenticated });
   const search = useMutation({ mutationFn: () => helpApi.searchKb(query), onSuccess: (r: any) => setKb(r) });
@@ -65,12 +67,23 @@ export default function HelpCenter() {
         </div>
       )}
 
+      {/* Emergency SOS banner */}
+      <button onClick={() => setShowSos(true)} className="w-full mb-6 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 transition-colors px-4 py-3 flex items-center gap-3 text-left">
+        <div className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"><ShieldAlert size={18} /></div>
+        <div>
+          <div className="font-semibold text-red-700 text-sm">Emergency Help (SOS)</div>
+          <div className="text-xs text-red-600/80">Medical, security, accident or breakdown during your trip</div>
+        </div>
+        <ChevronRight size={18} className="text-red-400 ml-auto" />
+      </button>
+
       {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
           { icon: Sparkles, label: 'AI Assistant', hint: 'Ask anything', action: () => (window as any).dispatchEvent(new Event('open-chat')) },
           { icon: Plus, label: 'New Ticket', hint: 'Raise an issue', action: () => setShowNew(true) },
           { icon: Ticket, label: 'My Tickets', hint: `${open} open`, action: () => document.getElementById('my-tickets')?.scrollIntoView({ behavior: 'smooth' }) },
+          { icon: PackageSearch, label: 'Lost & Found', hint: 'Report an item', action: () => setShowLost(true) },
           { icon: BookOpen, label: 'Guides', hint: 'How-tos', action: () => { setQuery('how to'); search.mutate(); } },
         ].map((t) => (
           <button key={t.label} onClick={t.action} className="card text-left hover:border-orange-200 transition-colors">
@@ -115,7 +128,82 @@ export default function HelpCenter() {
 
       {showNew && <NewTicketModal onClose={() => setShowNew(false)} onCreated={(id) => { qc.invalidateQueries({ queryKey: ['my-tickets'] }); setShowNew(false); setOpenTicketId(id); }} />}
       {openTicketId && <TicketDetail id={openTicketId} onClose={() => setOpenTicketId(null)} />}
+      {showLost && <LostFoundModal onClose={() => setShowLost(false)} />}
+      {showSos && <SosModal onClose={() => setShowSos(false)} />}
     </div>
+  );
+}
+
+function LostFoundModal({ onClose }: { onClose: () => void }) {
+  const [f, setF] = useState({ itemName: '', pnr: '', seat: '', color: '', description: '', contactPhone: '' });
+  const [done, setDone] = useState(false);
+  const report = useMutation({ mutationFn: () => helpApi.reportLost(f), onSuccess: () => setDone(true) });
+  return (
+    <Overlay title="Report a lost item" onClose={onClose}>
+      {done ? (
+        <div className="text-center py-6">
+          <CheckCircle size={40} className="text-green-500 mx-auto mb-2" />
+          <div className="font-medium text-slate-800">Report submitted</div>
+          <div className="text-sm text-slate-500 mt-1">The operator and driver have been notified. We’ll update you if it’s found.</div>
+          <button onClick={onClose} className="mt-4 bg-orange-600 text-white rounded-lg px-4 py-2 text-sm">Done</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <input value={f.itemName} onChange={(e) => setF({ ...f, itemName: e.target.value })} placeholder="What did you lose? (e.g. black backpack)" className="w-full border rounded-lg px-3 py-2 text-sm" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={f.pnr} onChange={(e) => setF({ ...f, pnr: e.target.value })} placeholder="PNR (if known)" className="border rounded-lg px-3 py-2 text-sm" />
+            <input value={f.seat} onChange={(e) => setF({ ...f, seat: e.target.value })} placeholder="Seat" className="border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="Colour / brand" className="w-full border rounded-lg px-3 py-2 text-sm" />
+          <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Description" rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
+          <input value={f.contactPhone} onChange={(e) => setF({ ...f, contactPhone: e.target.value })} placeholder="Contact phone" className="w-full border rounded-lg px-3 py-2 text-sm" />
+          <button onClick={() => f.itemName && report.mutate()} disabled={!f.itemName || report.isPending} className="w-full bg-orange-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-40">
+            {report.isPending ? 'Submitting…' : 'Submit report'}
+          </button>
+        </div>
+      )}
+    </Overlay>
+  );
+}
+
+const SOS_TYPES = [
+  { type: 'MEDICAL', label: 'Medical' }, { type: 'SECURITY', label: 'Security' }, { type: 'ACCIDENT', label: 'Accident' },
+  { type: 'HARASSMENT', label: 'Harassment' }, { type: 'BREAKDOWN', label: 'Breakdown' }, { type: 'FIRE', label: 'Fire' },
+];
+function SosModal({ onClose }: { onClose: () => void }) {
+  const [sent, setSent] = useState(false);
+  const raise = useMutation({
+    mutationFn: (type: string) => new Promise<any>((resolve) => {
+      const done = (coords?: GeolocationCoordinates) => resolve(helpApi.sos({ type, lat: coords?.latitude, lng: coords?.longitude }));
+      if (navigator.geolocation) navigator.geolocation.getCurrentPosition((p) => done(p.coords), () => done(), { timeout: 4000 });
+      else done();
+    }),
+    onSuccess: () => setSent(true),
+  });
+  return (
+    <Overlay title="Emergency SOS" onClose={onClose}>
+      {sent ? (
+        <div className="text-center py-6">
+          <div className="w-14 h-14 rounded-full bg-red-500 text-white flex items-center justify-center mx-auto mb-3"><ShieldAlert size={28} /></div>
+          <div className="font-semibold text-slate-800">Help is on the way</div>
+          <div className="text-sm text-slate-500 mt-1">The control room has been alerted with your location. Stay safe — keep your phone on.</div>
+          <button onClick={onClose} className="mt-4 bg-slate-800 text-white rounded-lg px-4 py-2 text-sm">Close</button>
+        </div>
+      ) : (
+        <div>
+          <div className="text-sm text-slate-600 mb-3 flex items-center gap-1"><MapPin size={14} className="text-red-500" /> Your location will be shared with the control room.</div>
+          <div className="grid grid-cols-2 gap-2">
+            {SOS_TYPES.map((s) => (
+              <button key={s.type} onClick={() => raise.mutate(s.type)} disabled={raise.isPending}
+                className="border border-red-200 text-red-700 hover:bg-red-50 rounded-lg py-3 text-sm font-medium disabled:opacity-50">
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {raise.isPending && <div className="text-xs text-slate-400 mt-3 text-center">Sending alert with your location…</div>}
+        </div>
+      )}
+    </Overlay>
   );
 }
 

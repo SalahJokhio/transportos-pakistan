@@ -70,6 +70,9 @@ export const helpApi = {
   reply: (id: string, body: string) => post(`/support/tickets/${id}/reply`, { body }),
   rate: (id: string, rating: number, comment?: string) => post(`/support/tickets/${id}/rate`, { rating, comment }),
   searchKb: (q: string) => get('/knowledge/search/q', { params: { q } }),
+  reportLost: (body: any) => post('/care/lost-found', body),
+  myLostItems: () => get('/care/lost-found/mine'),
+  sos: (body: { type: string; tripId?: string; lat?: number; lng?: number; note?: string }) => post('/care/sos', body),
 };
 
 export const assistantApi = {
