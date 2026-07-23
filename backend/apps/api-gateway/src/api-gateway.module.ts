@@ -24,6 +24,7 @@ import { DocumentModule } from '../../automation-service/src/documents/document.
 import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledge.module';
 import { DecisionModule } from '../../automation-service/src/decision/decision.module';
 import { AiInsightsModule } from '../../automation-service/src/ai/ai.module';
+import { SchedulerModule } from '../../automation-service/src/scheduler/scheduler.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -53,6 +54,7 @@ import { UploadController } from './upload.controller';
     KnowledgeModule, // Enterprise Knowledge Base + RAG (grounds the Copilot)
     DecisionModule, // AI Decision Engine (delay → alternative-vehicle recommendation)
     AiInsightsModule, // AI Memory (personalization) + Governance (feedback loop)
+    SchedulerModule, // Scheduling + Automation Engine (configurable jobs)
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],
