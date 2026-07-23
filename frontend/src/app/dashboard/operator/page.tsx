@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { operatorApi } from '@/lib/api/operator';
+import { downloadPdf } from '@/lib/downloadPdf';
 import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -298,14 +299,20 @@ export default function OperatorDashboard() {
           {b.length === 0
             ? <div className="card text-center py-10 text-slate-400">No buses registered yet.</div>
             : b.map((bus: any) => (
-              <div key={bus.id} className="card flex justify-between items-center">
+              <div key={bus.id} className="card flex justify-between items-center gap-3 flex-wrap">
                 <div>
                   <div className="font-semibold">{bus.registrationNumber}</div>
                   <div className="text-sm text-slate-500">{bus.make} {bus.model} · {bus.totalSeats} seats · {bus.busType}</div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${bus.isActive ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                  {bus.isActive ? 'Active' : 'Inactive'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => downloadPdf(`/documents/maintenance/${bus.id}`, `maintenance-${bus.registrationNumber}.pdf`).catch(() => alert('Could not generate report'))}
+                    className="text-xs border border-slate-200 text-slate-600 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg">Maintenance</button>
+                  <button onClick={() => downloadPdf(`/documents/inspection/${bus.id}`, `inspection-${bus.registrationNumber}.pdf`).catch(() => alert('Could not generate report'))}
+                    className="text-xs border border-slate-200 text-slate-600 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg">Inspection</button>
+                  <span className={`text-xs px-2 py-1 rounded-full ${bus.isActive ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {bus.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
               </div>
             ))}
         </div>
