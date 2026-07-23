@@ -224,6 +224,16 @@ export const knowledgeApi = {
   search: (q: string) => g('/knowledge/search/q', { params: { q } }),
 };
 
+// Scheduling + Automation Engine
+export const schedulerApi = {
+  jobs: () => g('/scheduler/jobs'),
+  create: (body: any) => p('/scheduler/jobs', body),
+  installDefaults: () => p('/scheduler/install-defaults'),
+  run: (id: string) => p(`/scheduler/jobs/${id}/run`),
+  toggle: (id: string) => pc(`/scheduler/jobs/${id}/toggle`),
+  remove: (id: string) => d(`/scheduler/jobs/${id}`),
+};
+
 // SLA + Escalation Engine
 export const slaApi = {
   config: () => g('/sla/config'),
