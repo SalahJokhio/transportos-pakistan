@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { agentsApi } from '@/lib/api/admin';
-import { Radar, Wallet, Bus, Bot, CheckCircle, Bell, AlertTriangle, AlertCircle, Info, Users, Headphones, Wrench, GitBranch } from 'lucide-react';
+import { agentsApi, aiApi } from '@/lib/api/admin';
+import { Radar, Wallet, Bus, Bot, CheckCircle, Bell, AlertTriangle, AlertCircle, Info, Users, Headphones, Wrench, GitBranch, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 const AGENTS = [
   { id: 'dispatch' as const, label: 'Dispatch', icon: Radar, blurb: 'Driver assignment, occupancy' },
@@ -23,6 +23,7 @@ const SEV_STYLE = {
 export function AgentsConsole() {
   const [active, setActive] = useState<Domain>('dispatch');
   const { data: overview } = useQuery({ queryKey: ['agents-overview'], queryFn: agentsApi.overview });
+  const { data: fbStats } = useQuery({ queryKey: ['ai-feedback-stats'], queryFn: aiApi.feedbackStats });
   const [brief, setBrief] = useState<any>(null);
   const collaborate = useMutation({
     mutationFn: () => agentsApi.collaborate('coordinated situational review'),
@@ -39,10 +40,15 @@ export function AgentsConsole() {
             <div className="text-xs text-gray-500">Each agent scans your live operation and recommends actions.</div>
           </div>
         </div>
-        <button onClick={() => collaborate.mutate()} disabled={collaborate.isPending}
-          className="text-sm bg-gradient-to-r from-indigo-600 to-orange-500 text-white px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50">
-          <Bot size={15} /> {collaborate.isPending ? 'Coordinating…' : 'Run coordinated review'}
-        </button>
+        <div className="flex items-center gap-3">
+          {fbStats && (fbStats as any).total > 0 && (
+            <span className="text-xs text-slate-500">AI accepted <b className="text-slate-700">{(fbStats as any).acceptanceRate}%</b> ({(fbStats as any).total})</span>
+          )}
+          <button onClick={() => collaborate.mutate()} disabled={collaborate.isPending}
+            className="text-sm bg-gradient-to-r from-indigo-600 to-orange-500 text-white px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50">
+            <Bot size={15} /> {collaborate.isPending ? 'Coordinating…' : 'Run coordinated review'}
+          </button>
+        </div>
       </div>
 
       {brief && (
@@ -107,6 +113,11 @@ function AgentInsights({ domain }: { domain: Domain }) {
     },
     onError: (e: any, vars: any) => setActed((a) => ({ ...a, [vars.id]: 'ERR:' + (e?.response?.data?.message || 'failed') })),
   });
+  const [rated, setRated] = useState<Record<string, boolean>>({});
+  const feedback = useMutation({
+    mutationFn: ({ id, accepted }: any) => aiApi.feedback('agent_insight', accepted, id),
+    onSuccess: (_r, vars: any) => { setRated((s) => ({ ...s, [vars.id]: true })); qc.invalidateQueries({ queryKey: ['ai-feedback-stats'] }); },
+  });
 
   if (isLoading) return <div className="card text-center py-10 text-slate-400 text-sm">Agent scanning…</div>;
 
@@ -136,6 +147,14 @@ function AgentInsights({ domain }: { domain: Domain }) {
                         className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-40 whitespace-nowrap">
                         {i.action.kind === 'workflow' ? <><GitBranch size={12} /> Start approval</> : <><Bell size={12} /> Create alert</>}
                       </button>
+                )}
+                {!ok && (
+                  rated[i.id]
+                    ? <span className="text-[11px] text-slate-400">thanks</span>
+                    : <span className="flex items-center gap-1">
+                        <button title="Useful" onClick={() => feedback.mutate({ id: i.id, accepted: true })} className="text-slate-300 hover:text-green-500"><ThumbsUp size={13} /></button>
+                        <button title="Not useful" onClick={() => feedback.mutate({ id: i.id, accepted: false })} className="text-slate-300 hover:text-red-500"><ThumbsDown size={13} /></button>
+                      </span>
                 )}
               </div>
             </div>

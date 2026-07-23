@@ -23,6 +23,7 @@ import { SlaModule } from '../../automation-service/src/sla/sla.module';
 import { DocumentModule } from '../../automation-service/src/documents/document.module';
 import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledge.module';
 import { DecisionModule } from '../../automation-service/src/decision/decision.module';
+import { AiInsightsModule } from '../../automation-service/src/ai/ai.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -51,6 +52,7 @@ import { UploadController } from './upload.controller';
     DocumentModule, // Document Engine (invoice / salary slip / offer letter PDFs)
     KnowledgeModule, // Enterprise Knowledge Base + RAG (grounds the Copilot)
     DecisionModule, // AI Decision Engine (delay → alternative-vehicle recommendation)
+    AiInsightsModule, // AI Memory (personalization) + Governance (feedback loop)
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],

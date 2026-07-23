@@ -178,6 +178,13 @@ export const predictiveApi = {
   overview: () => g('/predict/overview'),
 };
 
+// AI Memory + Governance
+export const aiApi = {
+  memoryMe: () => g('/ai/memory/me'),
+  feedback: (kind: string, accepted: boolean, refId?: string, note?: string) => p('/ai/feedback', { kind, accepted, refId, note }),
+  feedbackStats: () => g('/ai/feedback/stats'),
+};
+
 // Digital Twin — what-if simulation
 export const simulationApi = {
   run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
