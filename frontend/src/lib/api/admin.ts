@@ -168,6 +168,11 @@ export const agentsApi = {
   collaborate: (trigger?: string): Promise<any> => p('/agents/collaborate', { trigger }),
 };
 
+// KPI Engine
+export const kpiApi = {
+  overview: () => g('/kpi/overview'),
+};
+
 // Digital Twin — what-if simulation
 export const simulationApi = {
   run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
