@@ -75,6 +75,17 @@ export const helpApi = {
   sos: (body: { type: string; tripId?: string; lat?: number; lng?: number; note?: string }) => post('/care/sos', body),
 };
 
+export const profileApi = {
+  travelers: () => get('/profile/travelers'),
+  addTraveler: (b: any) => post('/profile/travelers', b),
+  removeTraveler: (id: string) => del(`/profile/travelers/${id}`),
+  addresses: () => get('/profile/addresses'),
+  addAddress: (b: any) => post('/profile/addresses', b),
+  removeAddress: (id: string) => del(`/profile/addresses/${id}`),
+  getPrefs: () => get('/profile/notification-prefs'),
+  setPrefs: (prefs: any) => api.put('/profile/notification-prefs', prefs) as unknown as Promise<any>,
+};
+
 export const assistantApi = {
   chat: (message: string, history: any[] = []) => post('/assistant/chat', { message, history }),
 };

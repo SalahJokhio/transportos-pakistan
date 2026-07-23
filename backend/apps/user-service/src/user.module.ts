@@ -38,6 +38,9 @@ import { BroadcastService } from './services/broadcast.service';
 import { SupportTicket, SupportMessage } from './entities/support-ticket.entity';
 import { SupportService } from './services/support.service';
 import { SupportController } from './controllers/support.controller';
+import { SavedTraveler, SavedAddress, NotificationPreference } from './entities/profile-extras.entities';
+import { ProfileExtrasService } from './services/profile-extras.service';
+import { ProfileExtrasController } from './controllers/profile-extras.controller';
 import { PlatformOpsService } from './services/platform-ops.service';
 import { LedgerEntry } from './entities/ledger-entry.entity';
 import { LedgerService } from './services/ledger.service';
@@ -63,10 +66,10 @@ import { Bus } from '../../fleet-service/src/entities/bus.entity';
       }),
     }),
     NotificationModule, // broadcast SMS/WhatsApp sender
-    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast, SupportTicket, SupportMessage, LedgerEntry, OperatorLoan]),
+    TypeOrmModule.forFeature([User, Otp, LoyaltyTransaction, WalletTransaction, Dispute, Booking, Payment, Settlement, CompanyProfile, Bus, City, Banner, PlatformSetting, ComplianceDocument, AuditLog, Broadcast, SupportTicket, SupportMessage, LedgerEntry, OperatorLoan, SavedTraveler, SavedAddress, NotificationPreference]),
   ],
-  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController, SupportController, LendingController],
-  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, SupportService, PlatformOpsService, LedgerService, LendingService, LoyaltyService, WalletService, DisputeService, JwtStrategy],
+  controllers: [AuthController, UserController, AdminController, LoyaltyController, WalletController, DisputesController, CatalogController, SupportController, LendingController, ProfileExtrasController],
+  providers: [AuthService, UserService, AdminService, SettlementService, CompanyService, CatalogService, ComplianceService, AuditService, AuditInterceptor, BroadcastService, SupportService, PlatformOpsService, LedgerService, LendingService, LoyaltyService, WalletService, DisputeService, ProfileExtrasService, JwtStrategy],
   exports: [WalletService, CompanyService, LedgerService],
 })
 export class UserModule {}
