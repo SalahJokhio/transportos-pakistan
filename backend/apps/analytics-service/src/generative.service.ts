@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import axios from 'axios';
 import { AnalyticsService } from './analytics.service';
 import { TripReport } from '../../fleet-service/src/entities/trip-report.entity';
+import { Employee } from '../../fleet-service/src/entities/employee.entity';
 
 /**
  * Generative AI (blueprint line 1198). Drafts narrative documents — executive
@@ -17,6 +18,7 @@ export class GenerativeService {
   constructor(
     private readonly analytics: AnalyticsService,
     @InjectRepository(TripReport) private readonly reportRepo: Repository<TripReport>,
+    @InjectRepository(Employee) private readonly employeeRepo: Repository<Employee>,
   ) {}
 
   private rs(n: number) { return `Rs ${Math.round(Number(n)).toLocaleString('en-PK')}`; }
@@ -90,6 +92,78 @@ export class GenerativeService {
       `KIND: ${kind}\nCONTEXT: ${JSON.stringify(context)}`);
     const text = via ?? this.emailTemplate(kind, context);
     return { type: 'email_draft', kind, generatedAt: new Date().toISOString(), poweredBy: via ? 'claude' : 'template', text };
+  }
+
+  // ── Shift plan (from real driver roster) ────────────────────────────
+  async shiftPlan(companyId?: string) {
+    const drivers = await this.employeeRepo.find({
+      where: { ...(companyId ? { companyId } : {}), employeeType: 'DRIVER' as any },
+      take: 30,
+    });
+    const onDuty = drivers.filter((d) => (d as any).status === 'ON_DUTY');
+    const facts = { totalDrivers: drivers.length, available: onDuty.length, names: onDuty.slice(0, 12).map((d) => d.firstName) };
+    const via = await this.claude(
+      'You are an operations planner. Draft a fair 2-shift (morning/evening) driver roster from the DATA. Keep it concise, add a rest-compliance note.',
+      `DATA:\n${JSON.stringify(facts)}`);
+    const text = via ?? this.shiftTemplate(onDuty);
+    return { type: 'shift_plan', generatedAt: new Date().toISOString(), poweredBy: via ? 'claude' : 'template', text, facts };
+  }
+
+  private shiftTemplate(drivers: any[]): string {
+    if (!drivers.length) return 'No on-duty drivers available to roster. Add or activate drivers first.';
+    const half = Math.ceil(drivers.length / 2);
+    const morning = drivers.slice(0, half).map((d) => d.firstName);
+    const evening = drivers.slice(half).map((d) => d.firstName);
+    return [
+      `Driver Shift Plan — ${new Date().toLocaleDateString('en-PK')}`, ``,
+      `Morning (06:00–14:00): ${morning.join(', ') || '—'}`,
+      `Evening (14:00–22:00): ${evening.join(', ') || '—'}`,
+      ``,
+      `Rest compliance: ensure each driver has ≥8 hours rest before the next shift; do not roster the same driver across both shifts.`,
+    ].join('\n');
+  }
+
+  // ── Maintenance summary (from driver reports) ───────────────────────
+  async maintenanceSummary(companyId?: string) {
+    const rows = await this.reportRepo.query(
+      `SELECT type, category, COUNT(*)::int n, COALESCE(SUM(amount),0) spend
+       FROM trip_reports WHERE "createdAt">=now()-interval '30 days'
+       ${companyId ? `AND "companyId"=$1` : ``} GROUP BY type, category ORDER BY n DESC`,
+      companyId ? [companyId] : []);
+    const facts = { period: '30 days', items: rows.map((r: any) => ({ type: r.type, category: r.category, count: r.n, spend: Number(r.spend) })) };
+    const via = await this.claude(
+      'You are a workshop manager. Write a short maintenance summary (what was reported, spend, and 1-2 recommendations) from the DATA only.',
+      `DATA:\n${JSON.stringify(facts)}`);
+    const totalSpend = facts.items.reduce((s: number, i: any) => s + i.spend, 0);
+    const incidents = facts.items.filter((i: any) => i.type === 'incident').reduce((s: number, i: any) => s + i.count, 0);
+    const text = via ?? [
+      `Maintenance Summary — last 30 days`, ``,
+      `Total reports: ${facts.items.reduce((s: number, i: any) => s + i.count, 0)} (incidents: ${incidents}).`,
+      `Total maintenance/expense spend: ${this.rs(totalSpend)}.`,
+      facts.items.length ? `Top categories: ${facts.items.slice(0, 3).map((i: any) => `${i.category || i.type} (${i.count})`).join(', ')}.` : `No reports in the period.`,
+      `Recommendation: schedule preventive inspection for vehicles with repeated incidents and review high-spend categories.`,
+    ].join('\n');
+    return { type: 'maintenance_summary', generatedAt: new Date().toISOString(), poweredBy: via ? 'claude' : 'template', text, facts };
+  }
+
+  // ── Meeting summary (from provided notes) ───────────────────────────
+  async meetingSummary(notes: string) {
+    const via = await this.claude(
+      'Summarize the meeting NOTES into: a 2-line summary, key decisions (bullets), and action items (bullets with owner if named).',
+      `NOTES:\n${notes}`);
+    const text = via ?? this.meetingTemplate(notes);
+    return { type: 'meeting_summary', generatedAt: new Date().toISOString(), poweredBy: via ? 'claude' : 'template', text };
+  }
+
+  private meetingTemplate(notes: string): string {
+    const lines = (notes || '').split(/[\n.;]+/).map((l) => l.trim()).filter((l) => l.length > 3);
+    const actions = lines.filter((l) => /(will|todo|action|follow up|assign|by |kal|karna)/i.test(l));
+    return [
+      `Meeting Summary`, ``,
+      `Summary: ${lines.slice(0, 2).join('. ') || 'No content provided.'}`,
+      ``, `Key points:`, ...lines.slice(0, 6).map((l) => `• ${l}`),
+      ``, `Action items:`, ...(actions.length ? actions.map((l) => `• ${l}`) : ['• (none identified)']),
+    ].join('\n');
   }
 
   private emailTemplate(kind: string, c: any): string {

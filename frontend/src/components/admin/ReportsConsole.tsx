@@ -15,11 +15,15 @@ export function ReportsConsole() {
   const [output, setOutput] = useState<any>(null);
   const [copied, setCopied] = useState(false);
 
+  const [notes, setNotes] = useState('');
   const exec = useMutation({ mutationFn: () => generativeApi.executiveReport(), onSuccess: (r: any) => setOutput(r) });
   const email = useMutation({ mutationFn: (kind: string) => generativeApi.email(kind, { name: 'Customer', pnr: 'TOS-XXXX', delayMinutes: 25, amount: 1500 }), onSuccess: (r: any) => setOutput(r) });
+  const shift = useMutation({ mutationFn: () => generativeApi.shiftPlan(), onSuccess: (r: any) => setOutput(r) });
+  const maint = useMutation({ mutationFn: () => generativeApi.maintenanceSummary(), onSuccess: (r: any) => setOutput(r) });
+  const meeting = useMutation({ mutationFn: () => generativeApi.meetingSummary(notes), onSuccess: (r: any) => setOutput(r) });
 
   const copy = () => { if (output?.text) { navigator.clipboard.writeText(output.text); setCopied(true); setTimeout(() => setCopied(false), 1500); } };
-  const busy = exec.isPending || email.isPending;
+  const busy = exec.isPending || email.isPending || shift.isPending || maint.isPending || meeting.isPending;
 
   return (
     <div className="space-y-5">
@@ -37,12 +41,24 @@ export function ReportsConsole() {
             className="text-sm bg-indigo-600 text-white px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-40">
             <FileText size={15} /> Executive report
           </button>
+          <button onClick={() => shift.mutate()} disabled={busy}
+            className="text-sm border border-slate-200 text-slate-700 hover:bg-slate-50 px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-40">
+            <FileText size={15} /> Shift plan
+          </button>
+          <button onClick={() => maint.mutate()} disabled={busy}
+            className="text-sm border border-slate-200 text-slate-700 hover:bg-slate-50 px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-40">
+            <FileText size={15} /> Maintenance summary
+          </button>
           {EMAIL_KINDS.map((e) => (
             <button key={e.kind} onClick={() => email.mutate(e.kind)} disabled={busy}
               className="text-sm border border-slate-200 text-slate-700 hover:bg-slate-50 px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-40">
               <Mail size={15} /> {e.label}
             </button>
           ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Paste meeting notes to summarize…" className="flex-1 border rounded px-3 py-2 text-sm" />
+          <button onClick={() => notes && meeting.mutate()} disabled={busy || !notes} className="text-sm border border-slate-200 text-slate-700 hover:bg-slate-50 px-3.5 py-2 rounded-lg disabled:opacity-40">Summarize meeting</button>
         </div>
       </div>
 
