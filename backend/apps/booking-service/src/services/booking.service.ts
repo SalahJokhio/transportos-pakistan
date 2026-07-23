@@ -207,6 +207,7 @@ export class BookingService {
         pnr: saved.pnr,
         bookingId: saved.id,
         tripId: saved.tripId,
+        passengerId,
         seatCount: saved.seatNumbers.length,
         finalAmount: Number(saved.finalAmount),
         paymentMode: saved.paymentMode,

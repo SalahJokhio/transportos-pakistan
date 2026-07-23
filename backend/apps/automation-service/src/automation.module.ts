@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlatformEvent } from './entities/platform-event.entity';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { AutomationAlert } from './entities/automation-alert.entity';
+import { InboxNotification } from './inbox/inbox.entity';
 import { EventBusService } from './services/event-bus.service';
 import { RulesEngineService } from './services/rules-engine.service';
 import { AutomationService } from './services/automation.service';
@@ -17,7 +18,7 @@ import { NotificationModule } from '../../notification-service/src/notification.
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PlatformEvent, AutomationRule, AutomationAlert]),
+    TypeOrmModule.forFeature([PlatformEvent, AutomationRule, AutomationAlert, InboxNotification]),
     NotificationModule,
   ],
   controllers: [AutomationController],
