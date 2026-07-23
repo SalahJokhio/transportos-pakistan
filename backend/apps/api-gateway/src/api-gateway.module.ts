@@ -26,6 +26,7 @@ import { DecisionModule } from '../../automation-service/src/decision/decision.m
 import { AiInsightsModule } from '../../automation-service/src/ai/ai.module';
 import { SchedulerModule } from '../../automation-service/src/scheduler/scheduler.module';
 import { InboxModule } from '../../automation-service/src/inbox/inbox.module';
+import { CareModule } from '../../automation-service/src/care/care.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -57,6 +58,7 @@ import { UploadController } from './upload.controller';
     AiInsightsModule, // AI Memory (personalization) + Governance (feedback loop)
     SchedulerModule, // Scheduling + Automation Engine (configurable jobs)
     InboxModule, // In-app notification inbox + bell
+    CareModule, // Lost & Found + Emergency SOS
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],
