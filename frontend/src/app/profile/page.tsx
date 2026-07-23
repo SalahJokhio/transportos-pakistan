@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { api } from '@/lib/api/client';
 import { authApi } from '@/lib/api/endpoints';
+import { ProfileExtras } from '@/components/profile/ProfileExtras';
 import { loyaltyApi } from '@/lib/api/loyalty';
 import { formatCnicInput, isCnicValid } from '@/lib/cnic';
 import { User, Star, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
@@ -268,6 +269,8 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        <ProfileExtras />
       </div>
     </div>
   );
