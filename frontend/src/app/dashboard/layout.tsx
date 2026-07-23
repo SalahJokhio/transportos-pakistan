@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { ShieldCheck, Bus, ExternalLink, LogOut } from 'lucide-react';
+import { NotificationBell } from '@/components/NotificationBell';
 
 /**
  * Console shell for the management panels (admin + operator). Deliberately
@@ -39,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <ExternalLink size={14} /> View site
             </Link>
+            <div className="text-slate-300"><NotificationBell /></div>
             {user?.firstName && <span className="text-slate-400 hidden sm:inline">{user.firstName}</span>}
             <button
               onClick={() => {

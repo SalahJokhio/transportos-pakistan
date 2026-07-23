@@ -180,6 +180,14 @@ export const predictiveApi = {
   overview: () => g('/predict/overview'),
 };
 
+// In-app notifications
+export const inboxApi = {
+  list: () => g('/notifications'),
+  unreadCount: () => g('/notifications/unread-count'),
+  markRead: (id: string) => p(`/notifications/${id}/read`),
+  markAllRead: () => p('/notifications/read-all'),
+};
+
 // AI Memory + Governance
 export const aiApi = {
   memoryMe: () => g('/ai/memory/me'),

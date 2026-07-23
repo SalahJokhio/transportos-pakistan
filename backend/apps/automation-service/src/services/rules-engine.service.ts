@@ -4,6 +4,7 @@ import { Repository, IsNull } from 'typeorm';
 import { AutomationRule, RuleCondition, RuleAction } from '../entities/automation-rule.entity';
 import { AutomationAlert } from '../entities/automation-alert.entity';
 import { PlatformEvent } from '../entities/platform-event.entity';
+import { InboxNotification } from '../inbox/inbox.entity';
 import { NotificationService } from '../../../notification-service/src/notification.service';
 
 /** Evaluates no-code rules against events and runs their actions. */
@@ -14,6 +15,7 @@ export class RulesEngineService {
   constructor(
     @InjectRepository(AutomationRule) private readonly ruleRepo: Repository<AutomationRule>,
     @InjectRepository(AutomationAlert) private readonly alertRepo: Repository<AutomationAlert>,
+    @InjectRepository(InboxNotification) private readonly inboxRepo: Repository<InboxNotification>,
     private readonly notifications: NotificationService,
   ) {}
 
@@ -105,8 +107,13 @@ export class RulesEngineService {
           const to = this.interpolate(action.to || '', event) || this.resolve(action.to, event.payload);
           const message = this.interpolate(action.message || '', event);
           if (!to) { this.logger.warn(`notify skipped (no recipient) rule ${rule.id}`); break; }
-          if (action.channel === 'whatsapp') await this.notifications.sendWhatsApp({ to, message } as any);
-          else await this.notifications.sendSms({ to, message } as any);
+          if (action.channel === 'inapp') {
+            await this.inboxRepo.save(this.inboxRepo.create({ userId: to, title: this.interpolate(action.title || rule.name, event), body: message, type: action.notifType || 'info' }));
+          } else if (action.channel === 'whatsapp') {
+            await this.notifications.sendWhatsApp({ to, message } as any);
+          } else {
+            await this.notifications.sendSms({ to, message } as any);
+          }
           break;
         }
 

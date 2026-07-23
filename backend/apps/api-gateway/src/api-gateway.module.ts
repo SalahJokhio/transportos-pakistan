@@ -25,6 +25,7 @@ import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledg
 import { DecisionModule } from '../../automation-service/src/decision/decision.module';
 import { AiInsightsModule } from '../../automation-service/src/ai/ai.module';
 import { SchedulerModule } from '../../automation-service/src/scheduler/scheduler.module';
+import { InboxModule } from '../../automation-service/src/inbox/inbox.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -55,6 +56,7 @@ import { UploadController } from './upload.controller';
     DecisionModule, // AI Decision Engine (delay → alternative-vehicle recommendation)
     AiInsightsModule, // AI Memory (personalization) + Governance (feedback loop)
     SchedulerModule, // Scheduling + Automation Engine (configurable jobs)
+    InboxModule, // In-app notification inbox + bell
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],
