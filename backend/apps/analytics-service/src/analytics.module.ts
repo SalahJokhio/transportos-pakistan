@@ -9,12 +9,14 @@ import { ExecutiveCopilotService } from './executive-copilot.service';
 import { SimulationController } from './simulation.controller';
 import { SimulationService } from './simulation.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
+import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledge.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     TypeOrmModule.forFeature([Booking]),
+    KnowledgeModule, // RAG grounding for the Copilot
   ],
   controllers: [AnalyticsController, ExecutiveCopilotController, SimulationController],
   providers: [AnalyticsService, ExecutiveCopilotService, SimulationService],

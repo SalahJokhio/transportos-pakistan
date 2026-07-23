@@ -180,6 +180,15 @@ export const policyApi = {
   check: (type: string, value: number) => p('/policies/check', { type, value }),
 };
 
+// Knowledge Base + RAG
+export const knowledgeApi = {
+  list: (category?: string) => g('/knowledge', { params: category ? { category } : {} }),
+  create: (body: any) => p('/knowledge', body),
+  update: (id: string, patch: any) => pc(`/knowledge/${id}`, patch),
+  remove: (id: string) => d(`/knowledge/${id}`),
+  search: (q: string) => g('/knowledge/search/q', { params: { q } }),
+};
+
 // SLA + Escalation Engine
 export const slaApi = {
   config: () => g('/sla/config'),

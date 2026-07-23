@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { AnalyticsService } from './analytics.service';
+import { KnowledgeService } from '../../automation-service/src/knowledge/knowledge.service';
 
 const SYSTEM_PROMPT = `You are the Executive Copilot for TransportOS, an intercity bus platform in Pakistan.
 You answer a business owner's questions about their operation.
@@ -30,7 +31,10 @@ interface Snapshot {
 export class ExecutiveCopilotService {
   private readonly logger = new Logger(ExecutiveCopilotService.name);
 
-  constructor(private readonly analytics: AnalyticsService) {}
+  constructor(
+    private readonly analytics: AnalyticsService,
+    private readonly knowledge: KnowledgeService,
+  ) {}
 
   /** Compact KPI snapshot the copilot reasons over. */
   async snapshot(companyId?: string): Promise<Snapshot> {
@@ -51,16 +55,21 @@ export class ExecutiveCopilotService {
 
   async ask(question: string, companyId?: string) {
     const data = await this.snapshot(companyId);
-    const viaClaude = await this.askClaude(question, data);
-    if (viaClaude) return { answer: viaClaude, data, poweredBy: 'claude' as const };
-    return { answer: this.fallback(question, data), data, poweredBy: 'rules' as const };
+    // RAG: pull relevant company knowledge to ground policy/how-to questions.
+    const kb = await this.knowledge.retrieve(companyId ?? null, question, 3).catch(() => []);
+    const viaClaude = await this.askClaude(question, data, kb);
+    if (viaClaude) return { answer: viaClaude, data, sources: kb.map((k) => k.title), poweredBy: 'claude' as const };
+    return { answer: this.fallback(question, data, kb), data, sources: kb.map((k) => k.title), poweredBy: 'rules' as const };
   }
 
-  // ── Claude (grounded) ──────────────────────────────────────────────
-  private async askClaude(question: string, data: Snapshot): Promise<string | null> {
+  // ── Claude (grounded on KPIs + knowledge base) ─────────────────────
+  private async askClaude(question: string, data: Snapshot, kb: any[]): Promise<string | null> {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) return null;
     const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+    const kbBlock = kb.length
+      ? `\n\nKNOWLEDGE BASE (cite these for policy/how-to):\n${kb.map((k) => `# ${k.title}\n${k.body}`).join('\n\n')}`
+      : '';
     try {
       const res = await axios.post(
         'https://api.anthropic.com/v1/messages',
@@ -70,7 +79,7 @@ export class ExecutiveCopilotService {
           system: SYSTEM_PROMPT,
           messages: [{
             role: 'user',
-            content: `DATA (scope: ${data.scope}):\n${JSON.stringify(data)}\n\nQUESTION: ${question}`,
+            content: `DATA (scope: ${data.scope}):\n${JSON.stringify(data)}${kbBlock}\n\nQUESTION: ${question}`,
           }],
         },
         { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 20000 },
@@ -85,9 +94,17 @@ export class ExecutiveCopilotService {
   // ── Keyword fallback (no API key) ──────────────────────────────────
   private rs(n: number) { return `Rs ${Math.round(n).toLocaleString('en-PK')}`; }
 
-  private fallback(question: string, d: Snapshot): string {
+  private fallback(question: string, d: Snapshot, kb: any[] = []): string {
     const q = question.toLowerCase();
     const today = d.revenueByDay[d.revenueByDay.length - 1];
+
+    // If the question isn't about the KPIs but a knowledge article matches, answer from it.
+    const isKpi = /(revenue|kamai|aamdani|sale|income|paisa|route|profit|cancel|refund|payment|forecast|demand|booking|ticket|occupancy)/.test(q);
+    if (!isKpi && kb.length) {
+      const top = kb[0];
+      const snippet = top.body.length > 320 ? top.body.slice(0, 320) + '…' : top.body;
+      return `From "${top.title}": ${snippet}`;
+    }
 
     if (/(revenue|kamai|aamdani|sale|income|paisa)/.test(q)) {
       if (/(today|aaj|aj)/.test(q) && today) {
