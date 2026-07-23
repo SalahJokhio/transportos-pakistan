@@ -8,6 +8,7 @@ import { TripReport } from '../../../fleet-service/src/entities/trip-report.enti
 import { SupportTicket } from '../../../user-service/src/entities/support-ticket.entity';
 import { AutomationAlert } from '../entities/automation-alert.entity';
 import { AgentsService } from './agents.service';
+import { OrchestratorService } from './orchestrator.service';
 import { AgentsController } from './agents.controller';
 import { WorkflowModule } from '../workflow/workflow.module';
 
@@ -21,6 +22,6 @@ import { WorkflowModule } from '../workflow/workflow.module';
     WorkflowModule,
   ],
   controllers: [AgentsController],
-  providers: [AgentsService],
+  providers: [AgentsService, OrchestratorService],
 })
 export class AgentsModule {}

@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AgentsService } from './agents.service';
+import { OrchestratorService } from './orchestrator.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 /** Department AI Agents console (Dispatch / Finance / Fleet). */
@@ -9,7 +10,10 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @Controller('agents')
 export class AgentsController {
-  constructor(private readonly agents: AgentsService) {}
+  constructor(
+    private readonly agents: AgentsService,
+    private readonly orchestrator: OrchestratorService,
+  ) {}
 
   private scope(req: any): string | undefined {
     if (req.user?.role === 'SUPER_ADMIN') return undefined;
@@ -20,6 +24,12 @@ export class AgentsController {
   @ApiOperation({ summary: 'Severity counts across all agents' })
   overview(@Request() req) {
     return this.agents.overview(this.scope(req));
+  }
+
+  @Post('collaborate')
+  @ApiOperation({ summary: 'Multi-agent collaboration: run all agents together → fused briefing' })
+  collaborate(@Body() body: { trigger?: string }, @Request() req) {
+    return this.orchestrator.collaborate(body?.trigger || 'manual situational review', this.scope(req));
   }
 
   @Get(':domain')
