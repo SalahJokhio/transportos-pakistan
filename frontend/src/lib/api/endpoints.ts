@@ -75,6 +75,14 @@ export const helpApi = {
   sos: (body: { type: string; tripId?: string; lat?: number; lng?: number; note?: string }) => post('/care/sos', body),
 };
 
+export const securityApi = {
+  status: () => get('/security/status'),
+  setup2fa: () => post('/security/2fa/setup'),
+  enable2fa: (code: string) => post('/security/2fa/enable', { code }),
+  disable2fa: (code: string) => post('/security/2fa/disable', { code }),
+  loginHistory: () => get('/security/login-history'),
+};
+
 export const profileApi = {
   travelers: () => get('/profile/travelers'),
   addTraveler: (b: any) => post('/profile/travelers', b),

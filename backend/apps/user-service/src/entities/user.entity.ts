@@ -47,6 +47,13 @@ export class User {
   @Column({ nullable: true })
   lastLoginAt: Date;
 
+  // Two-factor auth (TOTP). Secret is never returned by default.
+  @Column({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ nullable: true, select: false })
+  twoFactorSecret: string;
+
   @Column({ default: 0 })
   loyaltyPoints: number;
 
