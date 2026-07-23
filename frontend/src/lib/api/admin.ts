@@ -165,6 +165,7 @@ export const agentsApi = {
   overview: () => g('/agents/overview'),
   run: (domain: 'dispatch' | 'finance' | 'fleet' | 'hr' | 'crm' | 'workshop') => g(`/agents/${domain}`),
   act: (action: any, domain?: string) => p('/agents/act', { action, domain }),
+  collaborate: (trigger?: string): Promise<any> => p('/agents/collaborate', { trigger }),
 };
 
 // Digital Twin — what-if simulation

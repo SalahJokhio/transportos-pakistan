@@ -23,16 +23,47 @@ const SEV_STYLE = {
 export function AgentsConsole() {
   const [active, setActive] = useState<Domain>('dispatch');
   const { data: overview } = useQuery({ queryKey: ['agents-overview'], queryFn: agentsApi.overview });
+  const [brief, setBrief] = useState<any>(null);
+  const collaborate = useMutation({
+    mutationFn: () => agentsApi.collaborate('coordinated situational review'),
+    onSuccess: (r: any) => setBrief(r),
+  });
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2 text-gray-800">
-        <Bot size={20} className="text-indigo-600" />
-        <div>
-          <div className="font-semibold">Department Agents</div>
-          <div className="text-xs text-gray-500">Each agent scans your live operation and recommends actions.</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-gray-800">
+          <Bot size={20} className="text-indigo-600" />
+          <div>
+            <div className="font-semibold">Department Agents</div>
+            <div className="text-xs text-gray-500">Each agent scans your live operation and recommends actions.</div>
+          </div>
         </div>
+        <button onClick={() => collaborate.mutate()} disabled={collaborate.isPending}
+          className="text-sm bg-gradient-to-r from-indigo-600 to-orange-500 text-white px-3.5 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50">
+          <Bot size={15} /> {collaborate.isPending ? 'Coordinating…' : 'Run coordinated review'}
+        </button>
       </div>
+
+      {brief && (
+        <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-orange-50/40 p-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Multi-agent briefing</span>
+            {brief.criticalCount > 0 && <span className="text-[11px] bg-red-100 text-red-700 rounded-full px-2 py-0.5">{brief.criticalCount} critical</span>}
+            {brief.warningCount > 0 && <span className="text-[11px] bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">{brief.warningCount} warning</span>}
+          </div>
+          <p className="text-sm text-gray-800 leading-relaxed">{brief.briefing}</p>
+          {brief.topActions?.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {brief.topActions.map((a: any, i: number) => (
+                <span key={i} className="text-[11px] bg-white border border-slate-200 rounded-full px-2 py-1 text-slate-600">
+                  <b className="text-slate-800">{a.domain}</b>: {a.title}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Agent selector cards with severity badges */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
