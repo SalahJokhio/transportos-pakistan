@@ -21,6 +21,7 @@ import { AgentsModule } from '../../automation-service/src/agents/agents.module'
 import { PolicyModule } from '../../automation-service/src/policy/policy.module';
 import { SlaModule } from '../../automation-service/src/sla/sla.module';
 import { DocumentModule } from '../../automation-service/src/documents/document.module';
+import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledge.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -47,6 +48,7 @@ import { UploadController } from './upload.controller';
     PolicyModule, // Policy Engine (operating limits + violation checks)
     SlaModule, // SLA + Escalation Engine (breach detection + auto-escalation)
     DocumentModule, // Document Engine (invoice / salary slip / offer letter PDFs)
+    KnowledgeModule, // Enterprise Knowledge Base + RAG (grounds the Copilot)
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],
