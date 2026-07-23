@@ -173,6 +173,11 @@ export const kpiApi = {
   overview: () => g('/kpi/overview'),
 };
 
+// Predictive AI
+export const predictiveApi = {
+  overview: () => g('/predict/overview'),
+};
+
 // Digital Twin — what-if simulation
 export const simulationApi = {
   run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
