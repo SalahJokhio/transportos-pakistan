@@ -10,9 +10,10 @@ import { Bus } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
-  const [form, setForm] = useState({ phone: '', password: '' });
+  const [form, setForm] = useState({ phone: '', password: '', totp: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsTotp, setNeedsTotp] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +25,9 @@ export default function LoginPage() {
       // Send staff/admin roles straight to their console; passengers to home.
       router.push(roleHome(res.user?.role));
     } catch (err: any) {
-      setError(err.message);
+      const msg = err?.message || 'Login failed';
+      if (/TWO_FACTOR_REQUIRED/.test(msg)) { setNeedsTotp(true); setError('Enter the 6-digit code from your authenticator app.'); }
+      else setError(msg);
     } finally {
       setLoading(false);
     }
@@ -63,8 +66,19 @@ export default function LoginPage() {
                 required
               />
             </div>
+            {needsTotp && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Authenticator code</label>
+                <input
+                  type="text" inputMode="numeric" placeholder="000000" autoFocus
+                  value={form.totp}
+                  onChange={(e) => setForm({ ...form, totp: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                  className="input tracking-widest text-center"
+                />
+              </div>
+            )}
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logging in...' : needsTotp ? 'Verify & login' : 'Login'}
             </button>
           </form>
           <div className="flex justify-between items-center mt-4 text-sm text-slate-500">

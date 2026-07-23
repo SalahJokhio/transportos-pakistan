@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi } from '@/lib/api/endpoints';
 import { Users, MapPin, Bell, Plus, Trash2, Star } from 'lucide-react';
+import { SecuritySection } from './SecuritySection';
 
 export function ProfileExtras() {
   return (
@@ -10,6 +11,7 @@ export function ProfileExtras() {
       <SavedTravelers />
       <SavedAddresses />
       <NotificationPrefs />
+      <SecuritySection />
     </div>
   );
 }

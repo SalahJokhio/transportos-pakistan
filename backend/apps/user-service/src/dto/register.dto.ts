@@ -45,6 +45,12 @@ export class LoginDto {
   @ApiProperty({ example: 'StrongPass123!' })
   @IsString()
   password: string;
+
+  // Optional 6-digit TOTP, required only when the account has 2FA enabled.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  totp?: string;
 }
 
 export class SendOtpDto {

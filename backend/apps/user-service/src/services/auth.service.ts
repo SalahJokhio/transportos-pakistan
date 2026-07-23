@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { User } from '../entities/user.entity';
 import { Otp } from '../entities/otp.entity';
+import { LoginHistory } from '../entities/login-history.entity';
+import { verifyTotp } from '../security/totp.util';
 import { RegisterDto, LoginDto, SendOtpDto, VerifyOtpDto, ResetPasswordDto, ChangePasswordDto } from '../dto/register.dto';
 import { EncryptionUtil } from '@app/common';
 import { DateUtil } from '@app/common';
@@ -18,6 +20,7 @@ export class AuthService {
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Otp) private readonly otpRepo: Repository<Otp>,
+    @InjectRepository(LoginHistory) private readonly historyRepo: Repository<LoginHistory>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -47,17 +50,33 @@ export class AuthService {
     const user = await this.userRepo
       .createQueryBuilder('u')
       .addSelect('u.password')
+      .addSelect('u.twoFactorSecret')
       .where('u.phone = :phone', { phone: dto.phone })
       .getOne();
     if (!user) throw new UnauthorizedException('Invalid credentials');
     if (!user.isActive) throw new UnauthorizedException('Account disabled');
 
     const valid = await EncryptionUtil.comparePassword(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) {
+      this.recordLogin(user.id, 'FAILED', dto).catch(() => undefined);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Two-factor challenge (opt-in; default accounts are unaffected).
+    if (user.twoFactorEnabled) {
+      if (!dto.totp) throw new UnauthorizedException('TWO_FACTOR_REQUIRED');
+      if (!verifyTotp((user as any).twoFactorSecret, dto.totp)) throw new UnauthorizedException('Invalid 2FA code');
+    }
 
     await this.userRepo.update(user.id, { lastLoginAt: new Date() });
+    this.recordLogin(user.id, 'SUCCESS', dto).catch(() => undefined);
     const tokens = this.generateTokens(user);
     return { user: this.sanitize(user), ...tokens };
+  }
+
+  /** Best-effort login-history record for the Security Center. */
+  private async recordLogin(userId: string, status: string, dto: any) {
+    try { await this.historyRepo.save(this.historyRepo.create({ userId, status, ip: dto?.ip, device: (dto?.device || '').slice(0, 180) })); } catch { /* ignore */ }
   }
 
   async sendOtp(dto: SendOtpDto) {
