@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { operatorApi } from '@/lib/api/operator';
 import { OperatorNav } from '@/components/operator/OperatorNav';
+import { downloadPdf } from '@/lib/downloadPdf';
 import {
   Contact, Users, UserCheck, UserMinus, Wallet, Search, Plus, X,
-  Phone, MapPin, CreditCard, Star, AlertCircle,
+  Phone, MapPin, CreditCard, Star, AlertCircle, FileText,
 } from 'lucide-react';
 
 const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
@@ -289,7 +290,22 @@ function EmployeeDetailModal({ employee, onClose, onSaved }: { employee: any; on
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-400 mt-3">Documents, attendance &amp; payroll history coming in the next module.</p>
+      {/* Document Engine: generate PDFs */}
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Documents</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => downloadPdf(`/documents/salary/${e.id}?month=${new Date().toISOString().slice(0, 7)}`, `salary-${e.firstName}.pdf`).catch(() => alert('Could not generate salary slip'))}
+            className="text-xs font-medium py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
+            <FileText size={14} /> Salary slip
+          </button>
+          <button
+            onClick={() => downloadPdf(`/documents/offer/${e.id}`, `offer-${e.firstName}.pdf`).catch(() => alert('Could not generate offer letter'))}
+            className="text-xs font-medium py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
+            <FileText size={14} /> Offer letter
+          </button>
+        </div>
+      </div>
     </Overlay>
   );
 }
