@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { walletApi } from '@/lib/api/endpoints';
 import { useAuthStore } from '@/store/auth.store';
 import { Wallet, Plus, Gift, Star, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { MembershipCard } from '@/components/MembershipCard';
 
 const rs = (n: number) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -57,6 +58,9 @@ export default function WalletPage() {
           )}
         </div>
       </div>
+
+      {/* Membership tier */}
+      <MembershipCard />
 
       {/* Top up */}
       <div className="card mb-5">
