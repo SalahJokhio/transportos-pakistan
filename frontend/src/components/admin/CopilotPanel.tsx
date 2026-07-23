@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { copilotApi } from '@/lib/api/admin';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { copilotApi, aiApi } from '@/lib/api/admin';
 import { Sparkles, Send, User } from 'lucide-react';
 
 const SUGGESTIONS = [
@@ -21,6 +21,7 @@ export function CopilotPanel() {
   ]);
   const [q, setQ] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  const { data: mem } = useQuery({ queryKey: ['ai-memory-me'], queryFn: aiApi.memoryMe });
 
   const ask = useMutation({
     mutationFn: (question: string) => copilotApi.ask(question),
@@ -43,7 +44,11 @@ export function CopilotPanel() {
         <Sparkles size={18} className="text-orange-600" />
         <div>
           <div className="font-semibold text-gray-800">Executive Copilot</div>
-          <div className="text-xs text-gray-500">Natural-language answers grounded in your live data</div>
+          <div className="text-xs text-gray-500">
+            {(mem as any)?.known
+              ? <>Remembers you: usually {(mem as any).frequentRoute}{(mem as any).preferredPayment ? ` · ${(mem as any).preferredPayment}` : ''}</>
+              : 'Natural-language answers grounded in your live data'}
+          </div>
         </div>
       </div>
 
