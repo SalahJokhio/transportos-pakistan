@@ -178,3 +178,12 @@ export const policyApi = {
   update: (values: Record<string, number>) => pt('/policies', values),
   check: (type: string, value: number) => p('/policies/check', { type, value }),
 };
+
+// SLA + Escalation Engine
+export const slaApi = {
+  config: () => g('/sla/config'),
+  updateConfig: (tiers: any) => pt('/sla/config', tiers),
+  status: () => g('/sla/status'),
+  escalations: () => g('/sla/escalations'),
+  runNow: () => p('/sla/run'),
+};
