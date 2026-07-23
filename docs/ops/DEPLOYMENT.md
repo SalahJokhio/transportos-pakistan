@@ -48,5 +48,15 @@ Never commit real secrets. Create `backend-secrets` with `kubectl create secret`
 ## Required env vars (backend)
 `DATABASE_URL`, `DATABASE_SSL`, `REDIS_HOST/PORT/PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `NODE_ENV`, `CORS_ORIGIN`, `PLATFORM_COMMISSION_PCT`, optional `ANTHROPIC_API_KEY` (copilot/agents upgrade to full Claude).
 
-## Health & metrics
+## Health, metrics & tracing
 `/health/live`, `/health/ready`, `/metrics` (see `RUNBOOK.md`). Wire Prometheus to scrape `/metrics` and Grafana for dashboards; alert on `transportos_http_requests_total{status=~"5.."}` rate and readiness failures.
+
+**Request tracing**: every request gets an `X-Request-Id` (propagated if the caller sends one, else generated), echoed on the response and included in the structured access log. This is the correlation-id foundation for distributed tracing — to complete it, run an OpenTelemetry collector and have services emit spans keyed on that header.
+
+## Remaining infrastructure (provisioning decisions, not code)
+These are deliberately left as decisions for whoever runs production; the app is built to slot into them:
+- **Message broker** (RabbitMQ/Kafka): the Event Engine currently persists events to Postgres and processes them in-process. For high throughput, publish `platform_events` to a broker and move rule evaluation to consumers. The `EventBusService.emit()` seam is the single integration point.
+- **CDN**: front the frontend + `/uploads` static assets with a CDN (Cloudflare/CloudFront). No code change needed.
+- **Multi-region**: run the k8s manifests in a second region behind a global load balancer; use a read-replica or managed multi-region Postgres. Migrations remain a single release-phase step.
+- **DR drills**: schedule quarterly restore tests of the managed Postgres backups; document RPO/RTO once the business sets targets. `RUNBOOK.md` has the rollback/restore steps.
+- **Distributed tracing collector**: deploy an OTel collector + Jaeger/Tempo; instrument spans off `X-Request-Id`.
