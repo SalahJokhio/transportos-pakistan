@@ -180,6 +180,12 @@ export const generativeApi = {
   email: (kind: string, context?: any) => p('/generate/email', { kind, context }),
 };
 
+// Layer-1 staff assistants (Driver / Mechanic AI)
+export const staffAssistantApi = {
+  driver: (message: string, history?: any[]): Promise<any> => p('/assistant/driver', { message, history }),
+  mechanic: (message: string, history?: any[]): Promise<any> => p('/assistant/mechanic', { message, history }),
+};
+
 // Policy Engine
 export const policyApi = {
   get: () => g('/policies'),
