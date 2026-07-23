@@ -141,6 +141,8 @@ export const automationApi = {
 
 // Approval Workflow Engine
 export const workflowApi = {
+  templates: () => g('/workflows/templates'),
+  installTemplates: () => p('/workflows/install-templates'),
   listDefinitions: () => g('/workflows/definitions'),
   createDefinition: (body: any) => p('/workflows/definitions', body),
   updateDefinition: (id: string, patch: any) => pc(`/workflows/definitions/${id}`, patch),

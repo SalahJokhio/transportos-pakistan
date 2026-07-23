@@ -20,6 +20,19 @@ export class WorkflowController {
     return { userId: req.user?.sub || req.user?.id, role, companyId };
   }
 
+  // ── standard templates ─────────────────────────────────────────────
+  @Get('templates')
+  @ApiOperation({ summary: 'Catalog of standard approval-chain templates' })
+  templates() {
+    return this.workflows.templates();
+  }
+
+  @Post('install-templates')
+  @ApiOperation({ summary: 'Install any standard templates this tenant is missing' })
+  installTemplates(@Request() req) {
+    return this.workflows.installTemplates(this.actor(req).companyId);
+  }
+
   // ── definitions ────────────────────────────────────────────────────
   @Get('definitions')
   @ApiOperation({ summary: 'List approval-chain templates (own + platform)' })
