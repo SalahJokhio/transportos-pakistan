@@ -27,4 +27,16 @@ export class GenerativeController {
   @Post('email')
   @ApiOperation({ summary: 'Draft a customer email (kind: delay|refund|thanks)' })
   email(@Body() body: { kind: string; context?: any }) { return this.gen.emailDraft(body?.kind || 'thanks', body?.context); }
+
+  @Get('shift-plan')
+  @ApiOperation({ summary: 'Draft a driver shift roster from the live roster' })
+  shiftPlan(@Request() req) { return this.gen.shiftPlan(this.scope(req)); }
+
+  @Get('maintenance-summary')
+  @ApiOperation({ summary: 'Draft a maintenance summary from driver reports' })
+  maintenance(@Request() req) { return this.gen.maintenanceSummary(this.scope(req)); }
+
+  @Post('meeting-summary')
+  @ApiOperation({ summary: 'Summarize meeting notes into decisions + action items' })
+  meeting(@Body() body: { notes: string }) { return this.gen.meetingSummary(body?.notes || ''); }
 }

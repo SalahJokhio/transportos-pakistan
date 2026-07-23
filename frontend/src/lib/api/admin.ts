@@ -183,6 +183,9 @@ export const generativeApi = {
   executiveReport: () => g('/generate/executive-report'),
   incidentReport: (reportId: string) => g(`/generate/incident-report/${reportId}`),
   email: (kind: string, context?: any) => p('/generate/email', { kind, context }),
+  shiftPlan: () => g('/generate/shift-plan'),
+  maintenanceSummary: () => g('/generate/maintenance-summary'),
+  meetingSummary: (notes: string) => p('/generate/meeting-summary', { notes }),
 };
 
 // Layer-1 staff assistants (Driver / Mechanic AI)
