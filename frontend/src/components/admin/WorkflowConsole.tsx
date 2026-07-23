@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workflowApi } from '@/lib/api/admin';
-import { GitBranch, Plus, Trash2, Play, Check, X, Inbox, ListChecks, ChevronRight } from 'lucide-react';
+import { GitBranch, Plus, Trash2, Play, Check, X, Inbox, ListChecks, ChevronRight, LayoutList, Workflow } from 'lucide-react';
+import { VisualWorkflowBuilder } from './VisualWorkflowBuilder';
 
 const ROLES = ['COMPANY_ADMIN', 'FINANCE_OFFICER', 'BOOKING_AGENT', 'SUPER_ADMIN'];
 const CATEGORIES = ['PURCHASE', 'REFUND', 'LEAVE', 'MAINTENANCE', 'GENERAL'];
@@ -142,6 +143,7 @@ function DesignView() {
   const { data: defs = [] } = useQuery({ queryKey: ['wf-defs'], queryFn: workflowApi.listDefinitions });
   const [draft, setDraft] = useState<any>({ name: '', category: 'PURCHASE', steps: [{ name: 'Supervisor review', approverRole: 'COMPANY_ADMIN' }] });
   const [startFor, setStartFor] = useState<any>(null);
+  const [mode, setMode] = useState<'visual' | 'list'>('visual');
 
   const create = useMutation({ mutationFn: () => workflowApi.createDefinition(draft), onSuccess: () => { setDraft({ name: '', category: 'PURCHASE', steps: [{ name: 'Supervisor review', approverRole: 'COMPANY_ADMIN' }] }); qc.invalidateQueries({ queryKey: ['wf-defs'] }); } });
   const install = useMutation({ mutationFn: () => workflowApi.installTemplates(), onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-defs'] }) });
@@ -150,31 +152,45 @@ function DesignView() {
   const setStep = (i: number, k: string, v: string) => setDraft((d: any) => ({ ...d, steps: d.steps.map((s: any, x: number) => x === i ? { ...s, [k]: v } : s) }));
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
       {/* Builder */}
       <div className="card p-5">
-        <div className="flex items-center gap-2 font-semibold text-gray-800 mb-4"><GitBranch size={16} className="text-orange-600" /> New approval chain</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 font-semibold text-gray-800"><GitBranch size={16} className="text-orange-600" /> New approval chain</div>
+          <div className="flex gap-1 bg-slate-100 p-0.5 rounded-lg">
+            <button onClick={() => setMode('visual')} className={`text-xs px-2.5 py-1 rounded flex items-center gap-1 ${mode === 'visual' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}><Workflow size={12} /> Visual</button>
+            <button onClick={() => setMode('list')} className={`text-xs px-2.5 py-1 rounded flex items-center gap-1 ${mode === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}><LayoutList size={12} /> List</button>
+          </div>
+        </div>
         <div className="space-y-3">
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Purchase Request" className="w-full border rounded px-3 py-2 text-sm" />
-          <label className="text-sm">Category
-            <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} className="mt-1 w-full border rounded px-2 py-2 text-sm">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Chain name (e.g. Purchase Request)" className="w-full border rounded px-3 py-2 text-sm" />
+            <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} className="w-full border rounded px-2 py-2 text-sm">
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
-          </label>
-          <div className="text-xs font-semibold text-gray-500 uppercase pt-1">Approval steps (in order)</div>
-          {draft.steps.map((s: any, i: number) => (
-            <div key={i} className="flex gap-2 items-center">
-              <span className="text-xs text-slate-400 w-4">{i + 1}</span>
-              <input value={s.name} onChange={(e) => setStep(i, 'name', e.target.value)} placeholder="Step name" className="flex-1 border rounded px-2 py-1.5 text-sm" />
-              <select value={s.approverRole} onChange={(e) => setStep(i, 'approverRole', e.target.value)} className="border rounded px-1 py-1.5 text-sm">
-                {ROLES.map((r) => <option key={r}>{r}</option>)}
-              </select>
-              <button onClick={() => setDraft({ ...draft, steps: draft.steps.filter((_: any, x: number) => x !== i) })} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-            </div>
-          ))}
-          <button onClick={() => setDraft({ ...draft, steps: [...draft.steps, { name: '', approverRole: 'FINANCE_OFFICER' }] })} className="text-xs text-orange-600 flex items-center gap-1"><Plus size={12} /> step</button>
-          <button onClick={() => draft.name && draft.steps.length && create.mutate()} disabled={!draft.name || create.isPending}
-            className="bg-orange-600 text-white text-sm px-4 py-2 rounded flex items-center gap-1 disabled:opacity-40 w-full justify-center mt-2"><Plus size={14} /> Create chain</button>
+          </div>
+
+          {mode === 'visual' ? (
+            <VisualWorkflowBuilder steps={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} />
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-gray-500 uppercase pt-1">Approval steps (in order)</div>
+              {draft.steps.map((s: any, i: number) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <span className="text-xs text-slate-400 w-4">{i + 1}</span>
+                  <input value={s.name} onChange={(e) => setStep(i, 'name', e.target.value)} placeholder="Step name" className="flex-1 border rounded px-2 py-1.5 text-sm" />
+                  <select value={s.approverRole} onChange={(e) => setStep(i, 'approverRole', e.target.value)} className="border rounded px-1 py-1.5 text-sm">
+                    {ROLES.map((r) => <option key={r}>{r}</option>)}
+                  </select>
+                  <button onClick={() => setDraft({ ...draft, steps: draft.steps.filter((_: any, x: number) => x !== i) })} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                </div>
+              ))}
+              <button onClick={() => setDraft({ ...draft, steps: [...draft.steps, { name: '', approverRole: 'FINANCE_OFFICER' }] })} className="text-xs text-orange-600 flex items-center gap-1"><Plus size={12} /> step</button>
+            </>
+          )}
+
+          <button onClick={() => draft.name && draft.steps.length && create.mutate()} disabled={!draft.name || !draft.steps.length || create.isPending}
+            className="bg-orange-600 text-white text-sm px-4 py-2 rounded flex items-center gap-1 disabled:opacity-40 justify-center mt-2"><Plus size={14} /> Create chain</button>
         </div>
       </div>
 
