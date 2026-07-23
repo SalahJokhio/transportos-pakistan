@@ -46,7 +46,7 @@ export class KpiService {
               ${companyId ? `AND tr."companyId"=$1` : ``}`, p),
       // Complaint resolution: avg hours to resolve + % within 24h (support is platform-wide)
       this.q(`SELECT COALESCE(AVG(EXTRACT(EPOCH FROM ("resolvedAt"-"createdAt"))/3600),0) avg_h,
-                     COALESCE(AVG(CASE WHEN "resolvedAt" IS NOT NULL AND EXTRACT(EPOCH FROM ("resolvedAt"-"createdAt"))/3600<=24 THEN 1 ELSE 0 END)::float,0) within
+                     COALESCE(AVG(CASE WHEN "resolvedAt" IS NOT NULL AND EXTRACT(EPOCH FROM ("resolvedAt"-"createdAt"))/3600<=24 THEN 1 ELSE 0 END)::float,0) within24
               FROM support_tickets WHERE "resolvedAt" IS NOT NULL`),
     ]);
 
@@ -66,7 +66,7 @@ export class KpiService {
       { key: 'driver_rating', label: 'Avg Driver Rating', value: Math.round(this.n(rating[0]?.r) * 10) / 10, unit: '/ 5', hint: 'Mean of rated drivers' },
       { key: 'avg_delay', label: 'Avg Departure Delay', value: Math.round(this.n(delay[0]?.d)), unit: 'min', hint: 'Actual vs scheduled departure' },
       { key: 'workshop', label: 'Incidents (30d)', value: this.n(workshop[0]?.n), unit: 'reports', hint: 'On-road incidents reported by drivers' },
-      { key: 'complaint_resolution', label: 'Complaint Resolution', value: Math.round(this.n(complaints[0]?.avg_h) * 10) / 10, unit: 'hrs avg', hint: `${Math.round(this.n(complaints[0]?.within) * 100)}% resolved within 24h` },
+      { key: 'complaint_resolution', label: 'Complaint Resolution', value: Math.round(this.n(complaints[0]?.avg_h) * 10) / 10, unit: 'hrs avg', hint: `${Math.round(this.n(complaints[0]?.within24) * 100)}% resolved within 24h` },
     ];
   }
 }

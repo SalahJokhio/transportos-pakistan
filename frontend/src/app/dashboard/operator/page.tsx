@@ -485,8 +485,14 @@ function TripCard({ trip }: { trip: any }) {
     mutationFn: (status: string) => operatorApi.updateTripStatus(trip.id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['op-trips'] }),
   });
+  const [decision, setDecision] = useState<any>(null);
+  const decideMut = useMutation({
+    mutationFn: () => operatorApi.dispatchDecision(trip.id),
+    onSuccess: (d: any) => setDecision(d),
+  });
 
   const actions = STATUS_FLOW[trip.status] ?? [];
+  const canDecide = ['DELAYED', 'DEPARTED', 'BOARDING', 'IN_TRANSIT'].includes(trip.status);
 
   return (
     <div className="card">
@@ -527,8 +533,25 @@ function TripCard({ trip }: { trip: any }) {
               {action.label}
             </button>
           ))}
+          {canDecide && (
+            <button onClick={() => decideMut.mutate()} disabled={decideMut.isPending}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-600 text-white disabled:opacity-50">
+              {decideMut.isPending ? 'Deciding…' : 'Dispatch AI'}
+            </button>
+          )}
         </div>
       </div>
+
+      {decision && (
+        <div className="mt-3 border-t pt-3 text-sm bg-indigo-50/40 -mx-5 px-5 -mb-5 pb-4 rounded-b-xl">
+          <div className="font-medium text-indigo-700 mb-1">Dispatch recommendation</div>
+          <div className="text-gray-800">{decision.recommendation}</div>
+          <div className="text-xs text-slate-500 mt-1">
+            {decision.affectedPassengers} passenger(s) · {decision.affectedSeats} seat(s)
+            {decision.suggestedAlternative && <> · alt bus {decision.suggestedAlternative.registration}</>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
