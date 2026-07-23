@@ -16,6 +16,12 @@ export class LoyaltyController {
     return this.loyaltyService.getBalance(req.user.sub);
   }
 
+  @Get('tier')
+  @ApiOperation({ summary: 'Membership tier + progress + benefits' })
+  getTier(@Request() req) {
+    return this.loyaltyService.tier(req.user.sub);
+  }
+
   @Get('history')
   @ApiOperation({ summary: 'Get loyalty transaction history' })
   getHistory(@Request() req, @Query('page') page?: string, @Query('limit') limit?: string) {

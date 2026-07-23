@@ -19,6 +19,42 @@ export class LoyaltyService {
     private readonly dataSource: DataSource,
   ) {}
 
+  /** Membership tier from lifetime points earned + progress to the next tier. */
+  async tier(userId: string) {
+    const TIERS = [
+      { name: 'Bronze', min: 0, multiplier: 1, benefits: ['Earn 1 pt / Rs 10', 'Standard support'] },
+      { name: 'Silver', min: 2000, multiplier: 1.25, benefits: ['1.25× points', 'Priority support', 'Early-bird offers'] },
+      { name: 'Gold', min: 5000, multiplier: 1.5, benefits: ['1.5× points', 'Free seat selection', 'Priority boarding', 'Exclusive deals'] },
+      { name: 'Platinum', min: 15000, multiplier: 2, benefits: ['2× points', 'Dedicated support line', 'Free cancellation', 'Lounge access (where available)'] },
+    ];
+    const row = await this.txRepo
+      .createQueryBuilder('t')
+      .select('COALESCE(SUM(t.points),0)', 'earned')
+      .where('t.userId = :userId', { userId })
+      .andWhere('t.type = :type', { type: LoyaltyTransactionType.EARN })
+      .getRawOne();
+    const lifetime = Math.max(0, Number(row?.earned) || 0);
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+
+    let idx = 0;
+    for (let i = TIERS.length - 1; i >= 0; i--) if (lifetime >= TIERS[i].min) { idx = i; break; }
+    const current = TIERS[idx];
+    const next = TIERS[idx + 1] ?? null;
+    const progress = next ? Math.min(100, Math.round(((lifetime - current.min) / (next.min - current.min)) * 100)) : 100;
+
+    return {
+      tier: current.name,
+      multiplier: current.multiplier,
+      benefits: current.benefits,
+      pointsBalance: user?.loyaltyPoints ?? 0,
+      lifetimePoints: lifetime,
+      nextTier: next?.name ?? null,
+      pointsToNext: next ? Math.max(0, next.min - lifetime) : 0,
+      progress,
+      allTiers: TIERS.map((t) => ({ name: t.name, min: t.min })),
+    };
+  }
+
   async earnFromBooking(userId: string, amountPaid: number, bookingId: string): Promise<LoyaltyTransaction> {
     const points = Math.floor(amountPaid * POINTS_PER_RUPEE);
     if (points <= 0) return null;
