@@ -98,11 +98,13 @@ export class ExecutiveCopilotService {
     const q = question.toLowerCase();
     const today = d.revenueByDay[d.revenueByDay.length - 1];
 
-    // If the question isn't about the KPIs but a knowledge article matches, answer from it.
+    // Prefer a matching knowledge article for policy/how-to questions — even when
+    // the wording also contains KPI keywords (e.g. "refund policy" has "refund").
     const isKpi = /(revenue|kamai|aamdani|sale|income|paisa|route|profit|cancel|refund|payment|forecast|demand|booking|ticket|occupancy)/.test(q);
-    if (!isKpi && kb.length) {
+    const isKnowledgeQ = /(policy|rule|process|procedure|sop|guideline|how|kaise|kaisay|what is|kya hai|kia hai|explain|batao|bataye)/.test(q);
+    if (kb.length && (isKnowledgeQ || !isKpi)) {
       const top = kb[0];
-      const snippet = top.body.length > 320 ? top.body.slice(0, 320) + '…' : top.body;
+      const snippet = top.body.length > 340 ? top.body.slice(0, 340) + '…' : top.body;
       return `From "${top.title}": ${snippet}`;
     }
 

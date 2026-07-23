@@ -173,6 +173,13 @@ export const simulationApi = {
   run: (scenario: string, params: any): Promise<any> => p(`/simulate/${scenario}`, params),
 };
 
+// Generative AI reports
+export const generativeApi = {
+  executiveReport: () => g('/generate/executive-report'),
+  incidentReport: (reportId: string) => g(`/generate/incident-report/${reportId}`),
+  email: (kind: string, context?: any) => p('/generate/email', { kind, context }),
+};
+
 // Policy Engine
 export const policyApi = {
   get: () => g('/policies'),
