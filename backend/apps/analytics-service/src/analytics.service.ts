@@ -103,12 +103,27 @@ export class AnalyticsService {
       companyId ? [companyId] : [],
     );
     return {
+      // Predictions carry a confidence score + range (not certainty): the more
+      // trips we've observed, the tighter the estimate.
+      note: 'Projections include a confidence score and range based on sample size — treat as directional, not certain.',
       routes: rows.map((r: any) => {
         const trips = Number(r.trips) || 0;
         const bookings = Number(r.bookings) || 0;
         const avgPerTrip = trips ? Math.round((bookings / trips) * 10) / 10 : 0;
         const projectedNextWeek = Math.round(avgPerTrip * Math.max(1, Math.round(trips / 4)));
-        return { route: r.route, origin: r.origin, destination: r.destination, trips, bookings, avgPerTrip, projectedNextWeek };
+
+        // Sample-size driven confidence.
+        const score = trips >= 12 ? 0.85 : trips >= 5 ? 0.6 : trips >= 1 ? 0.35 : 0;
+        const label = score >= 0.75 ? 'HIGH' : score >= 0.5 ? 'MEDIUM' : score > 0 ? 'LOW' : 'NONE';
+        const margin = Math.round(projectedNextWeek * (1 - score) * 0.6);
+        return {
+          route: r.route, origin: r.origin, destination: r.destination, trips, bookings, avgPerTrip,
+          projectedNextWeek,
+          confidence: score,
+          confidenceLabel: label,
+          rangeLow: Math.max(0, projectedNextWeek - margin),
+          rangeHigh: projectedNextWeek + margin,
+        };
       }),
     };
   }
