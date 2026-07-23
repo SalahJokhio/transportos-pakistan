@@ -144,6 +144,7 @@ function DesignView() {
   const [startFor, setStartFor] = useState<any>(null);
 
   const create = useMutation({ mutationFn: () => workflowApi.createDefinition(draft), onSuccess: () => { setDraft({ name: '', category: 'PURCHASE', steps: [{ name: 'Supervisor review', approverRole: 'COMPANY_ADMIN' }] }); qc.invalidateQueries({ queryKey: ['wf-defs'] }); } });
+  const install = useMutation({ mutationFn: () => workflowApi.installTemplates(), onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-defs'] }) });
   const del = useMutation({ mutationFn: (id: string) => workflowApi.removeDefinition(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-defs'] }) });
 
   const setStep = (i: number, k: string, v: string) => setDraft((d: any) => ({ ...d, steps: d.steps.map((s: any, x: number) => x === i ? { ...s, [k]: v } : s) }));
@@ -179,7 +180,13 @@ function DesignView() {
 
       {/* Existing definitions */}
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b font-semibold text-gray-800">Chains ({defs.length})</div>
+        <div className="px-4 py-3 border-b font-semibold text-gray-800 flex items-center justify-between">
+          <span>Chains ({defs.length})</span>
+          <button onClick={() => install.mutate()} disabled={install.isPending}
+            className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-lg disabled:opacity-40">
+            {install.isPending ? 'Installing…' : install.isSuccess ? `Installed ${(install.data as any)?.installed ?? 0}` : 'Install standard templates'}
+          </button>
+        </div>
         <div className="divide-y max-h-[460px] overflow-y-auto">
           {defs.length === 0 && <div className="px-4 py-8 text-center text-gray-400 text-sm">No chains yet.</div>}
           {defs.map((dfn: any) => (

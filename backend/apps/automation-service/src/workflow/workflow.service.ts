@@ -16,6 +16,30 @@ export class WorkflowService {
     private readonly eventBus: EventBusService,
   ) {}
 
+  // ── standard templates ─────────────────────────────────────────────
+  private readonly TEMPLATES: Partial<WorkflowDefinition>[] = [
+    { name: 'Purchase Request', category: 'PURCHASE', description: 'Supervisor → Finance sign-off', steps: [{ name: 'Supervisor review', approverRole: 'COMPANY_ADMIN' }, { name: 'Finance sign-off', approverRole: 'FINANCE_OFFICER' }] },
+    { name: 'Refund Approval', category: 'REFUND', description: 'Agent → Finance', steps: [{ name: 'Agent review', approverRole: 'BOOKING_AGENT' }, { name: 'Finance approval', approverRole: 'FINANCE_OFFICER' }] },
+    { name: 'Leave Request', category: 'LEAVE', description: 'Manager approval', steps: [{ name: 'Manager approval', approverRole: 'COMPANY_ADMIN' }] },
+    { name: 'Maintenance / Repair Approval', category: 'MAINTENANCE', description: 'Workshop → Finance', steps: [{ name: 'Workshop manager', approverRole: 'COMPANY_ADMIN' }, { name: 'Finance approval', approverRole: 'FINANCE_OFFICER' }] },
+    { name: 'Vehicle Purchase', category: 'PURCHASE', description: 'Finance → CEO', steps: [{ name: 'Finance review', approverRole: 'FINANCE_OFFICER' }, { name: 'CEO approval', approverRole: 'SUPER_ADMIN' }] },
+  ];
+
+  templates() { return this.TEMPLATES; }
+
+  /** Install any standard templates the tenant doesn't already have (by name). */
+  async installTemplates(companyId: string | null) {
+    const existing = await this.defRepo.find({ where: companyId ? { companyId } : { companyId: IsNull() } });
+    const have = new Set(existing.map((d) => d.name.toLowerCase()));
+    let installed = 0;
+    for (const t of this.TEMPLATES) {
+      if (have.has((t.name || '').toLowerCase())) continue;
+      await this.defRepo.save(this.defRepo.create({ ...t, companyId: companyId ?? null, isActive: true }));
+      installed++;
+    }
+    return { installed };
+  }
+
   // ── definitions ────────────────────────────────────────────────────
   listDefinitions(companyId: string | null) {
     const where: any[] = [{ companyId: IsNull() }];
