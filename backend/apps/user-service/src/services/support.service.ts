@@ -74,4 +74,36 @@ export class SupportService {
     await this.ticketRepo.update(id, patch);
     return this.get(id);
   }
+
+  // ── Customer-facing (own tickets only) ──────────────────────────────
+  async listMine(userId: string) {
+    const tickets = await this.ticketRepo.find({ where: { requesterId: userId }, order: { createdAt: 'DESC' }, take: 100 });
+    return tickets.map((t) => this.withSla(t));
+  }
+
+  async getMine(id: string, userId: string) {
+    const ticket = await this.ticketRepo.findOne({ where: { id } });
+    if (!ticket || ticket.requesterId !== userId) throw new NotFoundException('Ticket not found');
+    const messages = await this.msgRepo.find({ where: { ticketId: id, isInternal: false as any }, order: { createdAt: 'ASC' } });
+    return { ...this.withSla(ticket), messages };
+  }
+
+  /** Customer reply: append their message and reopen for the agent (doesn't stamp first-response). */
+  async customerReply(id: string, userId: string, body: string) {
+    const ticket = await this.ticketRepo.findOne({ where: { id } });
+    if (!ticket || ticket.requesterId !== userId) throw new NotFoundException('Ticket not found');
+    await this.msgRepo.save(this.msgRepo.create({ ticketId: id, authorId: userId, authorRole: 'PASSENGER', body }));
+    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' || ticket.status === 'PENDING') {
+      await this.ticketRepo.update(id, { status: 'OPEN' });
+    }
+    return this.getMine(id, userId);
+  }
+
+  /** CSAT rating after resolution. */
+  async rate(id: string, userId: string, rating: number, comment?: string) {
+    const ticket = await this.ticketRepo.findOne({ where: { id } });
+    if (!ticket || ticket.requesterId !== userId) throw new NotFoundException('Ticket not found');
+    await this.ticketRepo.update(id, { rating: Math.max(1, Math.min(5, Number(rating))), ratingComment: comment });
+    return this.getMine(id, userId);
+  }
 }

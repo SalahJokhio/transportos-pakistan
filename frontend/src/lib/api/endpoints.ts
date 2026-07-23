@@ -62,6 +62,16 @@ export const analyticsApi = {
   driverScorecards: (companyId?: string) => get('/analytics/driver-scorecards', companyId ? { params: { companyId } } : undefined),
 };
 
+// Help Center: tickets, knowledge base, AI assistant
+export const helpApi = {
+  createTicket: (body: { subject: string; category?: string; priority?: string; body?: string }) => post('/support/tickets', body),
+  myTickets: () => get('/support/my-tickets'),
+  ticket: (id: string) => get(`/support/tickets/${id}`),
+  reply: (id: string, body: string) => post(`/support/tickets/${id}/reply`, { body }),
+  rate: (id: string, rating: number, comment?: string) => post(`/support/tickets/${id}/rate`, { rating, comment }),
+  searchKb: (q: string) => get('/knowledge/search/q', { params: { q } }),
+};
+
 export const assistantApi = {
   chat: (message: string, history: any[] = []) => post('/assistant/chat', { message, history }),
 };
