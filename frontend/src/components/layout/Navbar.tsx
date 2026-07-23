@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { roleHome, hasConsole } from '@/lib/roleHome';
-import { Bus, MapPin, Ticket, Star, User, LogOut, ShieldCheck, LayoutDashboard } from 'lucide-react';
+import { Bus, MapPin, Ticket, Star, User, LogOut, ShieldCheck, LayoutDashboard, LifeBuoy } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -33,6 +33,9 @@ export function Navbar() {
           </Link>
           <Link href="/verify-driver" className="hover:text-orange-600 flex items-center gap-1">
             <ShieldCheck size={15} /> Verify Driver
+          </Link>
+          <Link href="/help" className="hover:text-orange-600 flex items-center gap-1">
+            <LifeBuoy size={15} /> Help
           </Link>
           {isAuthenticated && hasConsole(user?.role) && (
             <Link href={roleHome(user?.role)} className="text-orange-600 font-semibold flex items-center gap-1">

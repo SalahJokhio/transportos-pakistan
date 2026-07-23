@@ -47,6 +47,13 @@ export class SupportTicket {
   @Column({ type: 'timestamp', nullable: true })
   resolvedAt: Date;
 
+  // CSAT: 1–5 star rating + optional comment, set by the customer after resolution.
+  @Column({ type: 'int', nullable: true })
+  rating: number;
+
+  @Column({ nullable: true })
+  ratingComment: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

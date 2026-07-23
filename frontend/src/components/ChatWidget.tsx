@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { assistantApi } from '@/lib/api/endpoints';
 import { MessageCircle, X, Send, Bus } from 'lucide-react';
@@ -16,6 +16,13 @@ export function ChatWidget() {
   const [msgs, setMsgs] = useState<Msg[]>([
     { role: 'assistant', content: 'Assalam-o-alaikum! Route batayein, jaise "Karachi to Lahore kal", main buses dhoond deta hoon. 🚌' },
   ]);
+
+  // Let other screens (e.g. the Help Center's AI Assistant tile) open the widget.
+  useEffect(() => {
+    const openHandler = () => setOpen(true);
+    window.addEventListener('open-chat', openHandler);
+    return () => window.removeEventListener('open-chat', openHandler);
+  }, []);
 
   // Passenger site only — hide on back-office consoles.
   if (pathname?.startsWith('/dashboard') || pathname?.startsWith('/agent') || pathname?.startsWith('/driver')) return null;
