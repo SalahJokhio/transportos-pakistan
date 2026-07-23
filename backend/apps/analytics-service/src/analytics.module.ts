@@ -12,6 +12,8 @@ import { GenerativeController } from './generative.controller';
 import { GenerativeService } from './generative.service';
 import { KpiController } from './kpi.controller';
 import { KpiService } from './kpi.service';
+import { PredictiveController } from './predictive.controller';
+import { PredictiveService } from './predictive.service';
 import { Booking } from '../../booking-service/src/entities/booking.entity';
 import { TripReport } from '../../fleet-service/src/entities/trip-report.entity';
 import { Employee } from '../../fleet-service/src/entities/employee.entity';
@@ -24,7 +26,7 @@ import { KnowledgeModule } from '../../automation-service/src/knowledge/knowledg
     TypeOrmModule.forFeature([Booking, TripReport, Employee]),
     KnowledgeModule, // RAG grounding for the Copilot
   ],
-  controllers: [AnalyticsController, ExecutiveCopilotController, SimulationController, GenerativeController, KpiController],
-  providers: [AnalyticsService, ExecutiveCopilotService, SimulationService, GenerativeService, KpiService],
+  controllers: [AnalyticsController, ExecutiveCopilotController, SimulationController, GenerativeController, KpiController, PredictiveController],
+  providers: [AnalyticsService, ExecutiveCopilotService, SimulationService, GenerativeService, KpiService, PredictiveService],
 })
 export class AnalyticsModule {}
