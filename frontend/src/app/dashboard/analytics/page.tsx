@@ -177,12 +177,21 @@ function ForecastAndScorecards({ companyId }: { companyId?: string }) {
       <div className="card p-4">
         <div className="flex items-center gap-2 font-semibold text-slate-800 mb-3"><Sparkles size={16} /> Demand forecast</div>
         <table className="w-full text-sm">
-          <thead className="text-slate-400 text-left text-xs"><tr><th className="py-1">Route</th><th>Trips</th><th>Avg/trip</th><th>Next wk</th></tr></thead>
+          <thead className="text-slate-400 text-left text-xs"><tr><th className="py-1">Route</th><th>Trips</th><th>Avg/trip</th><th>Next wk</th><th>Confidence</th></tr></thead>
           <tbody>
-            {(fc?.routes ?? []).map((r: any, i: number) => (
-              <tr key={i} className="border-t"><td className="py-1.5">{r.origin} → {r.destination}</td><td>{r.trips}</td><td>{r.avgPerTrip}</td><td className="font-semibold text-orange-600">{r.projectedNextWeek}</td></tr>
-            ))}
-            {(fc?.routes ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-slate-400">Not enough data yet.</td></tr>}
+            {(fc?.routes ?? []).map((r: any, i: number) => {
+              const cc = r.confidenceLabel === 'HIGH' ? 'bg-green-50 text-green-700' : r.confidenceLabel === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500';
+              return (
+                <tr key={i} className="border-t">
+                  <td className="py-1.5">{r.origin} → {r.destination}</td><td>{r.trips}</td><td>{r.avgPerTrip}</td>
+                  <td className="font-semibold text-orange-600" title={r.rangeLow != null ? `range ${r.rangeLow}–${r.rangeHigh}` : ''}>
+                    {r.projectedNextWeek}{r.rangeLow != null && <span className="text-[10px] text-slate-400 font-normal"> ({r.rangeLow}–{r.rangeHigh})</span>}
+                  </td>
+                  <td>{r.confidenceLabel && <span className={`text-[10px] px-1.5 py-0.5 rounded ${cc}`}>{r.confidenceLabel}</span>}</td>
+                </tr>
+              );
+            })}
+            {(fc?.routes ?? []).length === 0 && <tr><td colSpan={5} className="py-4 text-center text-slate-400">Not enough data yet.</td></tr>}
           </tbody>
         </table>
       </div>
