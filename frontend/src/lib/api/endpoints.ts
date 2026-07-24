@@ -84,6 +84,7 @@ export const securityApi = {
 };
 
 export const profileApi = {
+  memory: () => get('/ai/memory/me'),
   travelers: () => get('/profile/travelers'),
   addTraveler: (b: any) => post('/profile/travelers', b),
   removeTraveler: (id: string) => del(`/profile/travelers/${id}`),

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Calendar, Bus, Shield, Clock, Ticket } from 'lucide-react';
+import { PersonalizedHome } from '@/components/PersonalizedHome';
 
 const PAKISTAN_CITIES = [
   'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad',
@@ -29,6 +30,9 @@ export default function HomePage() {
 
   return (
     <div>
+      {/* Personalized dashboard (logged-in passengers) */}
+      <PersonalizedHome />
+
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-900 via-green-800 to-orange-700 text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
