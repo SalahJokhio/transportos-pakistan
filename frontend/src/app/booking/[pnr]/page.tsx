@@ -93,6 +93,16 @@ export default function BookingConfirmationPage() {
             </div>
           </div>
 
+          {(b.boardingPoint || b.dropoffPoint) && (
+            <div className="flex items-start gap-3">
+              <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" />
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                {b.boardingPoint && <div><div className="text-xs text-slate-400">Boarding</div><div className="font-medium">{b.boardingPoint}</div></div>}
+                {b.dropoffPoint && <div><div className="text-xs text-slate-400">Drop-off</div><div className="font-medium">{b.dropoffPoint}</div></div>}
+              </div>
+            </div>
+          )}
+
           {b.passengerDetails?.map((p: any, i: number) => (
             <div key={i} className="flex items-start gap-3">
               <div className="w-4 shrink-0" />
