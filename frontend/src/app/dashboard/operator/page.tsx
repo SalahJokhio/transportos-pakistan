@@ -8,8 +8,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bus, MapPin, Calendar, BarChart3, Plus, CheckCircle, AlertCircle, Navigation,
-  Building2, Repeat, Trash2, RefreshCw,
+  Building2, Repeat, Trash2, RefreshCw, Radio,
 } from 'lucide-react';
+import { DispatchBoard } from '@/components/operator/DispatchBoard';
 
 const STATUS_FLOW: Record<string, { next: string; label: string; color: string }[]> = {
   SCHEDULED: [{ next: 'BOARDING', label: 'Start Boarding', color: 'bg-yellow-500 text-white' }, { next: 'CANCELLED', label: 'Cancel', color: 'bg-red-500 text-white' }],
@@ -31,7 +32,7 @@ const STATUS_BADGE: Record<string, string> = {
   DELAYED:    'bg-amber-100 text-amber-700',
 };
 
-type Tab = 'overview' | 'routes' | 'buses' | 'trips' | 'schedules' | 'terminals';
+type Tab = 'overview' | 'dispatch' | 'routes' | 'buses' | 'trips' | 'schedules' | 'terminals';
 
 // ── small form helpers ──────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -197,6 +198,7 @@ export default function OperatorDashboard() {
 
   const tabs = [
     { id: 'overview' as Tab, label: 'Overview', icon: BarChart3 },
+    { id: 'dispatch' as Tab, label: 'Dispatch', icon: Radio },
     { id: 'routes' as Tab, label: 'Routes', icon: MapPin },
     { id: 'buses' as Tab, label: 'Fleet', icon: Bus },
     { id: 'trips' as Tab, label: 'Trips', icon: Calendar },
@@ -330,6 +332,9 @@ export default function OperatorDashboard() {
             ))}
         </div>
       )}
+
+      {/* Dispatch tab */}
+      {tab === 'dispatch' && <DispatchBoard />}
 
       {/* Schedules tab */}
       {tab === 'schedules' && <SchedulesTab routes={r} buses={b} />}
