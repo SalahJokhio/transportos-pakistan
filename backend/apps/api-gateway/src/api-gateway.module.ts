@@ -27,6 +27,7 @@ import { AiInsightsModule } from '../../automation-service/src/ai/ai.module';
 import { SchedulerModule } from '../../automation-service/src/scheduler/scheduler.module';
 import { InboxModule } from '../../automation-service/src/inbox/inbox.module';
 import { CareModule } from '../../automation-service/src/care/care.module';
+import { DispatchModule } from '../../automation-service/src/dispatch/dispatch.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthController } from './health.controller';
 import { UploadController } from './upload.controller';
@@ -59,6 +60,7 @@ import { UploadController } from './upload.controller';
     SchedulerModule, // Scheduling + Automation Engine (configurable jobs)
     InboxModule, // In-app notification inbox + bell
     CareModule, // Lost & Found + Emergency SOS
+    DispatchModule, // Dispatcher Console live-ops board
     ObservabilityModule, // /metrics + liveness/readiness probes
   ],
   controllers: [HealthController, UploadController],

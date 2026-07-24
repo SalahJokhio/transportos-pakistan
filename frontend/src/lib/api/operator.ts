@@ -15,6 +15,7 @@ export const operatorApi = {
     api.patch(`/operator/trips/${tripId}/status`, { status }),
   getManifest: (tripId: string) => get(`/bookings/manifest/${tripId}`),
   dispatchDecision: (tripId: string) => post(`/decisions/delay/${tripId}`),
+  dispatchBoard: () => get('/dispatch/board'),
   fleetReport: () => get('/operator/fleet-report'),
   tripReports: (tripId: string) => get(`/operator/trips/${tripId}/reports`),
   reports: () => get('/operator/reports'),
